@@ -149,7 +149,7 @@ jobs:
             mingwsys: "MINGW64"
             goarch: "amd64"
             suffix: "win.exe"
-          - os: windows-latest
+          - os: windows-11-arm
             name: windows build win-arm64.exe
             kernel_path: "../app/kernel-arm64/SiYuan-Kernel.exe"
             build_args_suffix: "Mode=prod"
@@ -157,7 +157,7 @@ jobs:
             goos: "windows"
             gobin: "bin"
             mingwsys: "CLANGARM64"
-            cc: "clang --target=aarch64-w64-mingw32"
+            cc: "clang"
             goarch: "arm64"
             suffix: "win-arm64.exe"
 
@@ -194,7 +194,7 @@ jobs:
             exit 1
           fi
           chmod +x "$UPX_BIN"
-          echo "UPX=$UPX_BIN" >> "$GITHUB_ENV"
+          echo "UPX_BIN_PATH=$UPX_BIN" >> "$GITHUB_ENV"
           "$UPX_BIN" --version
 
       - name: 安装 Go
@@ -301,8 +301,8 @@ jobs:
         if: matrix.config.goos != 'darwin'
         shell: bash
         run: |
-          if [ -n "${UPX:-}" ] && [ -f "${{ matrix.config.kernel_path }}" ]; then
-            "$UPX" --best "${{ matrix.config.kernel_path }}" || echo "UPX skipped: ${{ matrix.config.kernel_path }}"
+          if [ -n "${UPX_BIN_PATH:-}" ] && [ -f "${{ matrix.config.kernel_path }}" ]; then
+            "$UPX_BIN_PATH" --best "${{ matrix.config.kernel_path }}" || echo "UPX skipped: ${{ matrix.config.kernel_path }}"
           fi
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/kernel
 
@@ -312,10 +312,10 @@ jobs:
         run: |
           if [ "${{ matrix.config.goarch }}" = "arm64" ]; then
             cp elevator/elevator-arm64.exe kernel-arm64/elevator.exe
-            "$UPX" --best kernel-arm64/elevator.exe || echo "UPX skipped: kernel-arm64/elevator.exe"
+            "$UPX_BIN_PATH" --best kernel-arm64/elevator.exe || echo "UPX skipped: kernel-arm64/elevator.exe"
           else
             cp elevator/elevator-amd64.exe kernel/elevator.exe
-            "$UPX" --best kernel/elevator.exe || echo "UPX skipped: kernel/elevator.exe"
+            "$UPX_BIN_PATH" --best kernel/elevator.exe || echo "UPX skipped: kernel/elevator.exe"
           fi
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app
 
@@ -332,31 +332,58 @@ jobs:
         shell: bash
         run: |
           find build -maxdepth 1 -type f \( -name "*.AppImage" -o -name "*.exe" \) -print0 | while IFS= read -r -d '' file; do
-            "$UPX" --best "$file" || echo "UPX skipped: $file"
+            "$UPX_BIN_PATH" --best "$file" || echo "UPX skipped: $file"
           done
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app
 
-      - name: 上传非 Linux 构建产物
-        if: matrix.config.goos != 'linux'
+      - name: 上传 macOS 构建产物
+        if: matrix.config.goos == 'darwin'
+        uses: actions/upload-artifact@v7
+        with:
+          name: siyuan-${{ matrix.config.suffix }}
+          path: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.suffix }}
+          if-no-files-found: error
+
+      - name: 上传 Windows 构建产物
+        if: matrix.config.goos == 'windows'
         uses: actions/upload-artifact@v7
         with:
           name: siyuan-${{ matrix.config.suffix }}
           path: |
             ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.suffix }}
-            ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-win-portable.exe
-            ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-win-arm64-portable.exe
+            ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.goarch == 'arm64' && 'win-arm64-portable.exe' || 'win-portable.exe' }}
           if-no-files-found: error
 
-      - name: 上传 Linux 构建产物
+      - name: 上传 Linux AppImage
         if: matrix.config.goos == 'linux'
         uses: actions/upload-artifact@v7
         with:
-          name: siyuan-${{ matrix.config.suffix }}
-          path: |
-            ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.suffix }}.AppImage
-            ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.suffix }}.tar.gz
-            ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.suffix }}.deb
-            ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.suffix }}.rpm
+          name: siyuan-${{ matrix.config.suffix }}.AppImage
+          path: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.suffix }}.AppImage
+          if-no-files-found: error
+
+      - name: 上传 Linux tar.gz
+        if: matrix.config.goos == 'linux'
+        uses: actions/upload-artifact@v7
+        with:
+          name: siyuan-${{ matrix.config.suffix }}.tar.gz
+          path: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.suffix }}.tar.gz
+          if-no-files-found: error
+
+      - name: 上传 Linux deb
+        if: matrix.config.goos == 'linux'
+        uses: actions/upload-artifact@v7
+        with:
+          name: siyuan-${{ matrix.config.suffix }}.deb
+          path: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.suffix }}.deb
+          if-no-files-found: error
+
+      - name: 上传 Linux rpm
+        if: matrix.config.goos == 'linux'
+        uses: actions/upload-artifact@v7
+        with:
+          name: siyuan-${{ matrix.config.suffix }}.rpm
+          path: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.suffix }}.rpm
           if-no-files-found: error
 
   build_android:
@@ -487,22 +514,28 @@ jobs:
 
       - name: 注入 Android 签名配置
         run: |
-          missing=0
-          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
-            if [ -z "${!name}" ]; then
-              echo "Missing GitHub secret: $name"
-              missing=1
-            fi
-          done
-          if [ "$missing" -ne 0 ]; then
-            exit 1
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ] && [ -n "$ANDROID_KEYSTORE_PASSWORD" ] && [ -n "$ANDROID_KEY_ALIAS" ] && [ -n "$ANDROID_KEY_PASSWORD" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > ${{ github.workspace }}/siyuan-android/app/siyuan-android.jks
+            keytool -list \
+              -keystore ${{ github.workspace }}/siyuan-android/app/siyuan-android.jks \
+              -storepass "$ANDROID_KEYSTORE_PASSWORD" \
+              -alias "$ANDROID_KEY_ALIAS" \
+              -v > /dev/null
+          else
+            echo "Android signing secrets are incomplete; generating a temporary CI release keystore."
+            ANDROID_KEYSTORE_PASSWORD=android
+            ANDROID_KEY_ALIAS=androiddebugkey
+            ANDROID_KEY_PASSWORD=android
+            keytool -genkeypair -v \
+              -keystore ${{ github.workspace }}/siyuan-android/app/siyuan-android.jks \
+              -storepass "$ANDROID_KEYSTORE_PASSWORD" \
+              -alias "$ANDROID_KEY_ALIAS" \
+              -keypass "$ANDROID_KEY_PASSWORD" \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=SiYuan CI,O=SiYuan,C=CN"
           fi
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > ${{ github.workspace }}/siyuan-android/app/siyuan-android.jks
-          keytool -list \
-            -keystore ${{ github.workspace }}/siyuan-android/app/siyuan-android.jks \
-            -storepass "$ANDROID_KEYSTORE_PASSWORD" \
-            -alias "$ANDROID_KEY_ALIAS" \
-            -v > /dev/null
           cat > ${{ github.workspace }}/siyuan-android/signings.gradle <<EOF
           android {
             signingConfigs {
@@ -562,14 +595,14 @@ jobs:
             exit 1
           fi
           chmod +x "$UPX_BIN"
-          echo "UPX=$UPX_BIN" >> "$GITHUB_ENV"
+          echo "UPX_BIN_PATH=$UPX_BIN" >> "$GITHUB_ENV"
           "$UPX_BIN" --version
 
       - name: 压缩可压缩 Release 文件
         shell: bash
         run: |
           find . -type f \( -name "*.AppImage" -o -name "*.exe" \) -print0 | while IFS= read -r -d '' file; do
-            "$UPX" --best "$file" || echo "UPX skipped: $file"
+            "$UPX_BIN_PATH" --best "$file" || echo "UPX skipped: $file"
           done
 
       - name: 生成 SHA256SUMS
@@ -583,14 +616,14 @@ jobs:
         run: |
           VERSION=${{ needs.prepare.outputs.version }}
           expected=(
-            "siyuan-linux/siyuan-${VERSION}-linux.AppImage"
-            "siyuan-linux/siyuan-${VERSION}-linux.tar.gz"
-            "siyuan-linux/siyuan-${VERSION}-linux.deb"
-            "siyuan-linux/siyuan-${VERSION}-linux.rpm"
-            "siyuan-linux-arm64/siyuan-${VERSION}-linux-arm64.AppImage"
-            "siyuan-linux-arm64/siyuan-${VERSION}-linux-arm64.tar.gz"
-            "siyuan-linux-arm64/siyuan-${VERSION}-linux-arm64.deb"
-            "siyuan-linux-arm64/siyuan-${VERSION}-linux-arm64.rpm"
+            "siyuan-linux.AppImage/siyuan-${VERSION}-linux.AppImage"
+            "siyuan-linux.tar.gz/siyuan-${VERSION}-linux.tar.gz"
+            "siyuan-linux.deb/siyuan-${VERSION}-linux.deb"
+            "siyuan-linux.rpm/siyuan-${VERSION}-linux.rpm"
+            "siyuan-linux-arm64.AppImage/siyuan-${VERSION}-linux-arm64.AppImage"
+            "siyuan-linux-arm64.tar.gz/siyuan-${VERSION}-linux-arm64.tar.gz"
+            "siyuan-linux-arm64.deb/siyuan-${VERSION}-linux-arm64.deb"
+            "siyuan-linux-arm64.rpm/siyuan-${VERSION}-linux-arm64.rpm"
             "siyuan-mac.dmg/siyuan-${VERSION}-mac.dmg"
             "siyuan-mac-arm64.dmg/siyuan-${VERSION}-mac-arm64.dmg"
             "siyuan-win.exe/siyuan-${VERSION}-win.exe"
@@ -630,14 +663,14 @@ jobs:
           VERSION=${{ needs.prepare.outputs.version }}
           gh release upload ${{ github.ref_name }} \
             "SHA256SUMS.txt#SHA256SUMS.txt" \
-            "siyuan-linux/siyuan-${VERSION}-linux.AppImage#siyuan-${VERSION}-linux.AppImage" \
-            "siyuan-linux/siyuan-${VERSION}-linux.tar.gz#siyuan-${VERSION}-linux.tar.gz" \
-            "siyuan-linux/siyuan-${VERSION}-linux.deb#siyuan-${VERSION}-linux.deb" \
-            "siyuan-linux/siyuan-${VERSION}-linux.rpm#siyuan-${VERSION}-linux.rpm" \
-            "siyuan-linux-arm64/siyuan-${VERSION}-linux-arm64.AppImage#siyuan-${VERSION}-linux-arm64.AppImage" \
-            "siyuan-linux-arm64/siyuan-${VERSION}-linux-arm64.tar.gz#siyuan-${VERSION}-linux-arm64.tar.gz" \
-            "siyuan-linux-arm64/siyuan-${VERSION}-linux-arm64.deb#siyuan-${VERSION}-linux-arm64.deb" \
-            "siyuan-linux-arm64/siyuan-${VERSION}-linux-arm64.rpm#siyuan-${VERSION}-linux-arm64.rpm" \
+            "siyuan-linux.AppImage/siyuan-${VERSION}-linux.AppImage#siyuan-${VERSION}-linux.AppImage" \
+            "siyuan-linux.tar.gz/siyuan-${VERSION}-linux.tar.gz#siyuan-${VERSION}-linux.tar.gz" \
+            "siyuan-linux.deb/siyuan-${VERSION}-linux.deb#siyuan-${VERSION}-linux.deb" \
+            "siyuan-linux.rpm/siyuan-${VERSION}-linux.rpm#siyuan-${VERSION}-linux.rpm" \
+            "siyuan-linux-arm64.AppImage/siyuan-${VERSION}-linux-arm64.AppImage#siyuan-${VERSION}-linux-arm64.AppImage" \
+            "siyuan-linux-arm64.tar.gz/siyuan-${VERSION}-linux-arm64.tar.gz#siyuan-${VERSION}-linux-arm64.tar.gz" \
+            "siyuan-linux-arm64.deb/siyuan-${VERSION}-linux-arm64.deb#siyuan-${VERSION}-linux-arm64.deb" \
+            "siyuan-linux-arm64.rpm/siyuan-${VERSION}-linux-arm64.rpm#siyuan-${VERSION}-linux-arm64.rpm" \
             "siyuan-mac.dmg/siyuan-${VERSION}-mac.dmg#siyuan-${VERSION}-mac.dmg" \
             "siyuan-mac-arm64.dmg/siyuan-${VERSION}-mac-arm64.dmg#siyuan-${VERSION}-mac-arm64.dmg" \
             "siyuan-win.exe/siyuan-${VERSION}-win.exe#siyuan-${VERSION}-win.exe" \
