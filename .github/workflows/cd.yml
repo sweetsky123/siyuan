@@ -157,7 +157,7 @@ jobs:
             goos: "windows"
             gobin: "bin"
             mingwsys: "CLANGARM64"
-            cc: "clang"
+            cc: "clang --target=aarch64-w64-mingw32"
             goarch: "arm64"
             suffix: "win-arm64.exe"
 
@@ -172,7 +172,8 @@ jobs:
         if: "contains( matrix.config.goos, 'windows')"
         with:
           msystem: ${{ matrix.config.mingwsys }}
-          install: ${{ matrix.config.goarch == 'arm64' && 'p7zip mingw-w64-clang-aarch64-toolchain mingw-w64-clang-aarch64-lua' || 'p7zip mingw-w64-x86_64-lua' }}
+          path-type: inherit
+          install: ${{ matrix.config.goarch == 'arm64' && 'p7zip mingw-w64-clang-aarch64-toolchain mingw-w64-clang-aarch64-lua' || 'p7zip mingw-w64-x86_64-toolchain mingw-w64-x86_64-lua' }}
 
       - name: 安装 UPX 5.2.0
         if: matrix.config.goos != 'darwin'
@@ -271,7 +272,21 @@ jobs:
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/kernel
 
       - name: 编译 Kernel
+        if: matrix.config.goos != 'windows'
         shell: bash
+        run: go build -gcflags="-l=4" -pgo=auto -trimpath -buildvcs=false -tags "fts5 sqlcipher" -o "${{ matrix.config.kernel_path }}" -ldflags "-s -w -X github.com/${{ github.repository }}/kernel/util.${{ matrix.config.build_args_suffix }}"
+        working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/kernel
+        env:
+          GO111MODULE: on
+          CGO_ENABLED: 1
+          GOOS: ${{ matrix.config.goos }}
+          GOPATH: ${{ github.workspace }}/go
+          GOARCH: ${{ matrix.config.goarch }}
+          CC: ${{ matrix.config.cc }}
+
+      - name: 编译 Windows Kernel
+        if: matrix.config.goos == 'windows'
+        shell: msys2 {0}
         run: go build -gcflags="-l=4" -pgo=auto -trimpath -buildvcs=false -tags "fts5 sqlcipher" -o "${{ matrix.config.kernel_path }}" -ldflags "-s -w -X github.com/${{ github.repository }}/kernel/util.${{ matrix.config.build_args_suffix }}"
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/kernel
         env:
@@ -326,7 +341,10 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: siyuan-${{ matrix.config.suffix }}
-          path: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.suffix }}
+          path: |
+            ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.suffix }}
+            ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-win-portable.exe
+            ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-win-arm64-portable.exe
           if-no-files-found: error
 
       - name: 上传 Linux 构建产物
@@ -469,7 +487,22 @@ jobs:
 
       - name: 注入 Android 签名配置
         run: |
+          missing=0
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "Missing GitHub secret: $name"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
           echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > ${{ github.workspace }}/siyuan-android/app/siyuan-android.jks
+          keytool -list \
+            -keystore ${{ github.workspace }}/siyuan-android/app/siyuan-android.jks \
+            -storepass "$ANDROID_KEYSTORE_PASSWORD" \
+            -alias "$ANDROID_KEY_ALIAS" \
+            -v > /dev/null
           cat > ${{ github.workspace }}/siyuan-android/signings.gradle <<EOF
           android {
             signingConfigs {
@@ -561,7 +594,9 @@ jobs:
             "siyuan-mac.dmg/siyuan-${VERSION}-mac.dmg"
             "siyuan-mac-arm64.dmg/siyuan-${VERSION}-mac-arm64.dmg"
             "siyuan-win.exe/siyuan-${VERSION}-win.exe"
+            "siyuan-win.exe/siyuan-${VERSION}-win-portable.exe"
             "siyuan-win-arm64.exe/siyuan-${VERSION}-win-arm64.exe"
+            "siyuan-win-arm64.exe/siyuan-${VERSION}-win-arm64-portable.exe"
             "siyuan-android/siyuan-${VERSION}.apk"
             "SHA256SUMS.txt"
           )
@@ -606,5 +641,7 @@ jobs:
             "siyuan-mac.dmg/siyuan-${VERSION}-mac.dmg#siyuan-${VERSION}-mac.dmg" \
             "siyuan-mac-arm64.dmg/siyuan-${VERSION}-mac-arm64.dmg#siyuan-${VERSION}-mac-arm64.dmg" \
             "siyuan-win.exe/siyuan-${VERSION}-win.exe#siyuan-${VERSION}-win.exe" \
+            "siyuan-win.exe/siyuan-${VERSION}-win-portable.exe#siyuan-${VERSION}-win-portable.exe" \
             "siyuan-win-arm64.exe/siyuan-${VERSION}-win-arm64.exe#siyuan-${VERSION}-win-arm64.exe" \
+            "siyuan-win-arm64.exe/siyuan-${VERSION}-win-arm64-portable.exe#siyuan-${VERSION}-win-arm64-portable.exe" \
             "siyuan-android/siyuan-${VERSION}.apk#siyuan-${VERSION}.apk"

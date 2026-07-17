@@ -4,6 +4,8 @@ asar: false
 compression: "normal"
 copyright: "© 2020-present Yunnan Liandi Technology Co., Ltd."
 artifactName: "siyuan-${version}-${os}.${ext}"
+portable:
+  artifactName: "siyuan-${version}-${os}-portable.${ext}"
 extraMetadata:
   main: "electron/main.js"
 directories:
@@ -26,6 +28,7 @@ win:
     rfc3161TimeStampServer: "http://timestamp.acs.microsoft.com/"
   target:
     - target: "nsis"
+    - target: "portable"
 nsis:
   oneClick: false
   perMachine: false
