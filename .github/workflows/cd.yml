@@ -175,28 +175,6 @@ jobs:
           path-type: inherit
           install: ${{ matrix.config.goarch == 'arm64' && 'p7zip mingw-w64-clang-aarch64-toolchain mingw-w64-clang-aarch64-lua' || 'p7zip mingw-w64-x86_64-toolchain mingw-w64-x86_64-lua' }}
 
-      - name: 安装 UPX 5.2.0
-        if: matrix.config.goos != 'darwin'
-        shell: bash
-        run: |
-          mkdir -p "$RUNNER_TEMP/upx"
-          cd "$RUNNER_TEMP/upx"
-          if [ "${{ matrix.config.goos }}" = "windows" ]; then
-            curl -fsSL -o upx.zip https://github.com/upx/upx/releases/download/v5.2.0/upx-5.2.0-win64.zip
-            7z x upx.zip -y
-          else
-            curl -fsSL -o upx.tar.xz https://github.com/upx/upx/releases/download/v5.2.0/upx-5.2.0-amd64_linux.tar.xz
-            tar -xf upx.tar.xz
-          fi
-          UPX_BIN=$(find "$RUNNER_TEMP/upx" -type f \( -name upx -o -name upx.exe \) | head -1)
-          if [ -z "$UPX_BIN" ]; then
-            echo "UPX executable not found"
-            exit 1
-          fi
-          chmod +x "$UPX_BIN"
-          echo "UPX_BIN_PATH=$UPX_BIN" >> "$GITHUB_ENV"
-          "$UPX_BIN" --version
-
       - name: 安装 Go
         uses: actions/setup-go@v6
         with:
@@ -297,25 +275,14 @@ jobs:
           GOARCH: ${{ matrix.config.goarch }}
           CC: ${{ matrix.config.cc }}
 
-      - name: 压缩 Kernel 可执行文件
-        if: matrix.config.goos != 'darwin'
-        shell: bash
-        run: |
-          if [ -n "${UPX_BIN_PATH:-}" ] && [ -f "${{ matrix.config.kernel_path }}" ]; then
-            "$UPX_BIN_PATH" --best "${{ matrix.config.kernel_path }}" || echo "UPX skipped: ${{ matrix.config.kernel_path }}"
-          fi
-        working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/kernel
-
       - name: 准备 Windows 提权程序
         if: "contains( matrix.config.goos, 'windows')"
         shell: bash
         run: |
           if [ "${{ matrix.config.goarch }}" = "arm64" ]; then
             cp elevator/elevator-arm64.exe kernel-arm64/elevator.exe
-            "$UPX_BIN_PATH" --best kernel-arm64/elevator.exe || echo "UPX skipped: kernel-arm64/elevator.exe"
           else
             cp elevator/elevator-amd64.exe kernel/elevator.exe
-            "$UPX_BIN_PATH" --best kernel/elevator.exe || echo "UPX skipped: kernel/elevator.exe"
           fi
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app
 
@@ -325,15 +292,6 @@ jobs:
 
       - name: 打包桌面应用
         run: pnpm run ${{ matrix.config.electron_args }}
-        working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app
-
-      - name: 压缩可压缩 Release 文件
-        if: matrix.config.goos != 'darwin'
-        shell: bash
-        run: |
-          find build -maxdepth 1 -type f \( -name "*.AppImage" -o -name "*.exe" \) -print0 | while IFS= read -r -d '' file; do
-            "$UPX_BIN_PATH" --best "$file" || echo "UPX skipped: $file"
-          done
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app
 
       - name: 上传 macOS 构建产物
@@ -582,6 +540,15 @@ jobs:
       - name: 下载全部构建产物
         uses: actions/download-artifact@v8
 
+      - name: 解压下载的构建产物
+        shell: bash
+        run: |
+          find . -type f -name "*.zip" -print0 | while IFS= read -r -d '' file; do
+            dir=$(dirname "$file")
+            unzip -q -o "$file" -d "$dir"
+            rm -f "$file"
+          done
+
       - name: 安装 UPX 5.2.0
         shell: bash
         run: |
@@ -601,7 +568,13 @@ jobs:
       - name: 压缩可压缩 Release 文件
         shell: bash
         run: |
-          find . -type f \( -name "*.AppImage" -o -name "*.exe" \) -print0 | while IFS= read -r -d '' file; do
+          find . -type f -name "SiYuan-Kernel*.exe" -print0 | while IFS= read -r -d '' file; do
+            "$UPX_BIN_PATH" --best "$file" || echo "UPX skipped: $file"
+          done
+          find . -type f -name "elevator.exe" -print0 | while IFS= read -r -d '' file; do
+            "$UPX_BIN_PATH" --best "$file" || echo "UPX skipped: $file"
+          done
+          find . -type f -name "*.AppImage" -print0 | while IFS= read -r -d '' file; do
             "$UPX_BIN_PATH" --best "$file" || echo "UPX skipped: $file"
           done
 
@@ -647,6 +620,7 @@ jobs:
       - name: 创建 Release
         uses: ncipollo/release-action@v1
         with:
+          allowUpdates: true
           name: ${{ needs.prepare.outputs.release_title }}
           tag: ${{ github.ref_name }}
           body: ${{ needs.prepare.outputs.release_body }}
@@ -661,7 +635,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           VERSION=${{ needs.prepare.outputs.version }}
-          gh release upload ${{ github.ref_name }} \
+          gh release upload ${{ github.ref_name }} --clobber \
             "SHA256SUMS.txt#SHA256SUMS.txt" \
             "siyuan-linux.AppImage/siyuan-${VERSION}-linux.AppImage#siyuan-${VERSION}-linux.AppImage" \
             "siyuan-linux.tar.gz/siyuan-${VERSION}-linux.tar.gz#siyuan-${VERSION}-linux.tar.gz" \
