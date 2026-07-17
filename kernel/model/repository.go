@@ -2676,7 +2676,12 @@ func buildCloudConf() (ret *cloud.Conf, err error) {
 	}
 
 	userId, token, availableSize := "0", "", int64(1024*1024*1024*1024*2)
-	if nil != Conf.User && conf.ProviderSiYuan == Conf.Sync.Provider {
+	if conf.ProviderSiYuan == Conf.Sync.Provider {
+		if nil == Conf.User {
+			err = fmt.Errorf("cloud user is not logged in")
+			return
+		}
+
 		u := Conf.GetUser()
 		userId = u.UserId
 		token = u.UserToken

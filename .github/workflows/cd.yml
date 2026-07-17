@@ -1,12 +1,13 @@
-name: CD For SiYuan
+name: 自动构建发布
 
 on:
   push:
     tags:
-      - '*-alpha*'
-      - '*-beta*'
-      - '*-rc*'
+      - 'v*'
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 # ref https://docs.github.com/zh/actions/learn-github-actions/variables
 env:
@@ -14,18 +15,20 @@ env:
 
 jobs:
   prepare:
-    name: Prepare
+    name: 准备发布信息
     runs-on: ubuntu-latest
     outputs:
       release_title: ${{ steps.release_info.outputs.release_title }}
       version: ${{ steps.version.outputs.value }}
       packageManager: ${{ steps.packageManager.outputs.value }}
       release_body: ${{ steps.release_info.outputs.release_body }}
+      prerelease: ${{ steps.release_flags.outputs.prerelease }}
+      make_latest: ${{ steps.release_flags.outputs.make_latest }}
     steps:
-      - name: Checkout code
+      - name: 检查代码
         uses: actions/checkout@v6
 
-      - name: Setup Python
+      - name: 安装 Python
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
@@ -38,12 +41,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract version from package.json
+      - name: 读取版本号
         id: version
         run: |
           echo "value=$(jq .version ${{ env.package_json }} -r)" >> $GITHUB_OUTPUT
 
-      - name: Verify tag matches package.json version
+      - name: 校验 Tag 版本
         # 仅 tag 推送触发时校验：去掉 tag 前导 v 后与 package.json 中的版本号比对，
         # 不一致说明开发者推 tag 前忘记同步版本号，直接终止整个流程。
         if: startsWith(github.ref, 'refs/tags/')
@@ -56,17 +59,17 @@ jobs:
           fi
           echo "Tag matches version: $TAG"
 
-      - name: Extract electronVersion from package.json
+      - name: 读取 Electron 版本
         id: electronVersion
         run: |
           echo "value=$(jq .devDependencies.electron ${{ env.package_json }} -r)" >> $GITHUB_OUTPUT
 
-      - name: Extract packageManager from package.json
+      - name: 读取包管理器版本
         id: packageManager
         run: |
           echo "value=$(jq .packageManager ${{ env.package_json }} -r)" >> $GITHUB_OUTPUT
 
-      - name: Gather Release Information
+      - name: 生成 Release 说明
         id: release_info
         run: |
           echo "release_title=SiYuan v${{ steps.version.outputs.value }}" >> $GITHUB_OUTPUT
@@ -80,26 +83,45 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: 判断 Release 类型
+        id: release_flags
+        run: |
+          if [[ "${GITHUB_REF_NAME}" == *-alpha* || "${GITHUB_REF_NAME}" == *-beta* || "${GITHUB_REF_NAME}" == *-rc* ]]; then
+            echo "prerelease=true" >> $GITHUB_OUTPUT
+            echo "make_latest=false" >> $GITHUB_OUTPUT
+          else
+            echo "prerelease=false" >> $GITHUB_OUTPUT
+            echo "make_latest=true" >> $GITHUB_OUTPUT
+          fi
+
   build:
     runs-on: ${{ matrix.config.os }}
     name: ${{ matrix.config.name }}
     needs: [prepare]
     strategy:
+      fail-fast: false
       matrix:
         config:
           - os: ubuntu-24.04
             name: ubuntu build linux
             kernel_path: "../app/kernel-linux/SiYuan-Kernel"
-            build_args_prefix: "-s -w -X"
             build_args_suffix: "Mode=prod"
             electron_args: "dist-linux"
             goos: "linux"
             goarch: "amd64"
             suffix: "linux"
+          - os: ubuntu-24.04
+            name: ubuntu build linux-arm64
+            kernel_path: "../app/kernel-linux-arm64/SiYuan-Kernel"
+            build_args_suffix: "Mode=prod"
+            electron_args: "dist-linux-arm64"
+            goos: "linux"
+            cc: "aarch64-linux-gnu-gcc"
+            goarch: "arm64"
+            suffix: "linux-arm64"
           - os: macos-latest
             name: macos build mac.dmg
             kernel_path: "../app/kernel-darwin/SiYuan-Kernel"
-            build_args_prefix: "-s -w -X"
             build_args_suffix: "Mode=prod"
             electron_args: "dist-darwin"
             goos: "darwin"
@@ -108,7 +130,6 @@ jobs:
           - os: macos-latest
             name: macos build mac-arm64.dmg
             kernel_path: "../app/kernel-darwin-arm64/SiYuan-Kernel"
-            build_args_prefix: "-s -w -X"
             build_args_suffix: "Mode=prod"
             electron_args: "dist-darwin-arm64"
             goos: "darwin"
@@ -117,7 +138,6 @@ jobs:
           - os: windows-latest
             name: windows build win.exe
             kernel_path: "../app/kernel/SiYuan-Kernel.exe"
-            build_args_prefix: "-s -w -X"
             build_args_suffix: "Mode=prod"
             electron_args: "dist"
             goos: "windows"
@@ -125,19 +145,54 @@ jobs:
             mingwsys: "MINGW64"
             goarch: "amd64"
             suffix: "win.exe"
+          - os: windows-latest
+            name: windows build win-arm64.exe
+            kernel_path: "../app/kernel-arm64/SiYuan-Kernel.exe"
+            build_args_suffix: "Mode=prod"
+            electron_args: "dist-arm64"
+            goos: "windows"
+            gobin: "bin"
+            mingwsys: "CLANGARM64"
+            cc: "clang"
+            goarch: "arm64"
+            suffix: "win-arm64.exe"
 
     steps:
-      - uses: actions/checkout@v6
+      - name: 检查代码
+        uses: actions/checkout@v6
         with:
           path: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}
 
-      - name: Set up MingGW
+      - name: 安装 MingGW
         uses: msys2/setup-msys2@v2
         if: "contains( matrix.config.goos, 'windows')"
         with:
-          install: p7zip mingw-w64-x86_64-lua
+          msystem: ${{ matrix.config.mingwsys }}
+          install: ${{ matrix.config.goarch == 'arm64' && 'p7zip mingw-w64-clang-aarch64-toolchain mingw-w64-clang-aarch64-lua' || 'p7zip mingw-w64-x86_64-lua' }}
 
-      - name: Set up Go
+      - name: 安装 UPX 5.2.0
+        if: matrix.config.goos != 'darwin'
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/upx"
+          cd "$RUNNER_TEMP/upx"
+          if [ "${{ matrix.config.goos }}" = "windows" ]; then
+            curl -fsSL -o upx.zip https://github.com/upx/upx/releases/download/v5.2.0/upx-5.2.0-win64.zip
+            7z x upx.zip -y
+          else
+            curl -fsSL -o upx.tar.xz https://github.com/upx/upx/releases/download/v5.2.0/upx-5.2.0-amd64_linux.tar.xz
+            tar -xf upx.tar.xz
+          fi
+          UPX_BIN=$(find "$RUNNER_TEMP/upx" -type f \( -name upx -o -name upx.exe \) | head -1)
+          if [ -z "$UPX_BIN" ]; then
+            echo "UPX executable not found"
+            exit 1
+          fi
+          chmod +x "$UPX_BIN"
+          echo "UPX=$UPX_BIN" >> "$GITHUB_ENV"
+          "$UPX_BIN" --version
+
+      - name: 安装 Go
         uses: actions/setup-go@v6
         with:
           go-version-file: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/kernel/go.mod
@@ -145,58 +200,75 @@ jobs:
           cache: true
       - run: go version
 
-      - name: Set up goversioninfo
+      - name: 安装 goversioninfo
         run: go get github.com/josephspurrier/goversioninfo/cmd/goversioninfo && go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo
         if: "contains( matrix.config.goos, 'windows')"
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/kernel
         env:
           GO111MODULE: on
-          CGO_ENABLED: 1
-          GOOS: ${{ matrix.config.goos }}
           GOPATH: ${{ github.workspace }}/go
-          GOARCH: ${{ matrix.config.goarch }}
 
-      - name: Set up Node
+      - name: 安装 Node
         uses: actions/setup-node@v6
         with:
           node-version: 24
 
-      - name: Install Node pnpm
+      - name: 安装 pnpm
         run: npm install -g ${{ needs.prepare.outputs.packageManager }}
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app
 
-      - name: Cache pnpm store
+      - name: 缓存 pnpm store
         uses: actions/cache@v5
         with:
           path: ~/.pnpm-store
           key: pnpm-${{ runner.os }}-${{ hashFiles('app/pnpm-lock.yaml') }}
           restore-keys: pnpm-${{ runner.os }}-
 
-      - name: Install Node Dependencies
+      - name: 安装前端依赖
         run: pnpm install --no-frozen-lockfile
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app
 
-      - name: Install Electron Binary
+      - name: 安装 Electron
         run: pnpm run install:electron
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app
 
-      - name: Building UI
+      - name: 编译前端
         run: pnpm run build
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app
 
-      - name: Clean Build and Kernel Directories
+      - name: 安装前端压缩工具
+        run: npm install --no-save --package-lock=false terser html-minifier-terser postcss cssnano sharp svgo glob fast-glob
+        working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}
+
+      - name: 压缩前端静态文件
+        run: node min.js app/stage
+        working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}
+
+      - name: 清理构建目录
         run: |
           rm -rf "${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build"
           rm -rf "${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/kernel"*
         shell: bash
 
-      - name: Generate Icon Resource and Properties/Version Info For Windows
+      - name: 生成 Windows 版本信息
         run: ${{ github.workspace }}\go\${{ matrix.config.gobin }}\goversioninfo -platform-specific=true -icon="resource\icon.ico" -manifest="resource\goversioninfo.exe.manifest"
         if: "contains( matrix.config.goos, 'windows')"
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/kernel
 
-      - name: Building Kernel
-        run: go build -tags "fts5 sqlcipher" -o "${{ matrix.config.kernel_path }}" -ldflags "${{ matrix.config.build_args_prefix }} github.com/${{ github.repository }}/kernel/util.${{ matrix.config.build_args_suffix }}"
+      - name: 安装 Linux ARM64 工具链
+        if: matrix.config.goos == 'linux' && matrix.config.goarch == 'arm64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
+      - name: 准备 Kernel 输出目录
+        shell: bash
+        run: mkdir -p "$(dirname '${{ matrix.config.kernel_path }}')"
+        working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/kernel
+
+      - name: 编译 Kernel
+        shell: bash
+        run: go build -gcflags="-l=4" -pgo=auto -trimpath -buildvcs=false -tags "fts5 sqlcipher" -o "${{ matrix.config.kernel_path }}" -ldflags "-s -w -X github.com/${{ github.repository }}/kernel/util.${{ matrix.config.build_args_suffix }}"
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/kernel
         env:
           GO111MODULE: on
@@ -204,46 +276,80 @@ jobs:
           GOOS: ${{ matrix.config.goos }}
           GOPATH: ${{ github.workspace }}/go
           GOARCH: ${{ matrix.config.goarch }}
+          CC: ${{ matrix.config.cc }}
 
-      - name: Install RPM build tools
+      - name: 压缩 Kernel 可执行文件
+        if: matrix.config.goos != 'darwin'
+        shell: bash
+        run: |
+          if [ -n "${UPX:-}" ] && [ -f "${{ matrix.config.kernel_path }}" ]; then
+            "$UPX" --best "${{ matrix.config.kernel_path }}" || echo "UPX skipped: ${{ matrix.config.kernel_path }}"
+          fi
+        working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/kernel
+
+      - name: 准备 Windows 提权程序
+        if: "contains( matrix.config.goos, 'windows')"
+        shell: bash
+        run: |
+          if [ "${{ matrix.config.goarch }}" = "arm64" ]; then
+            cp elevator/elevator-arm64.exe kernel-arm64/elevator.exe
+            "$UPX" --best kernel-arm64/elevator.exe || echo "UPX skipped: kernel-arm64/elevator.exe"
+          else
+            cp elevator/elevator-amd64.exe kernel/elevator.exe
+            "$UPX" --best kernel/elevator.exe || echo "UPX skipped: kernel/elevator.exe"
+          fi
+        working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app
+
+      - name: 安装 RPM 打包工具
         if: matrix.config.goos == 'linux'
         run: sudo apt-get install -y rpm
 
-      - name: Building Electron App
+      - name: 打包桌面应用
         run: pnpm run ${{ matrix.config.electron_args }}
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app
 
-      - name: Upload Build Artifacts (Non-Linux)
+      - name: 压缩可压缩 Release 文件
+        if: matrix.config.goos != 'darwin'
+        shell: bash
+        run: |
+          find build -maxdepth 1 -type f \( -name "*.AppImage" -o -name "*.exe" \) -print0 | while IFS= read -r -d '' file; do
+            "$UPX" --best "$file" || echo "UPX skipped: $file"
+          done
+        working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app
+
+      - name: 上传非 Linux 构建产物
         if: matrix.config.goos != 'linux'
         uses: actions/upload-artifact@v7
         with:
           name: siyuan-${{ matrix.config.suffix }}
           path: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.suffix }}
+          if-no-files-found: error
 
-      - name: Upload Build Artifacts (Linux)
+      - name: 上传 Linux 构建产物
         if: matrix.config.goos == 'linux'
         uses: actions/upload-artifact@v7
         with:
-          name: siyuan-linux
+          name: siyuan-${{ matrix.config.suffix }}
           path: |
-            ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-linux.AppImage
-            ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-linux.tar.gz
-            ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-linux.deb
-            ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-linux.rpm
+            ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.suffix }}.AppImage
+            ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.suffix }}.tar.gz
+            ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.suffix }}.deb
+            ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.suffix }}.rpm
+          if-no-files-found: error
 
   build_android:
     runs-on: ubuntu-latest
-    name: ubuntu build android.apk
+    name: ubuntu 编译 android.apk
     # Android and desktop builds run in parallel, both depend on prepare.
     # create_release aggregates all artifacts once both jobs succeed.
     needs: prepare
     steps:
-      - name: Checkout code
+      - name: 检查代码
         uses: actions/checkout@v6
         with:
           path: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}
 
-      - name: Set up Go
+      - name: 安装 Go
         uses: actions/setup-go@v6
         with:
           go-version-file: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/kernel/go.mod
@@ -251,37 +357,45 @@ jobs:
           cache: true
       - run: go version
 
-      - name: Set up Node
+      - name: 安装 Node
         uses: actions/setup-node@v6
         with:
           node-version: 24
 
-      - name: Install Node pnpm
+      - name: 安装 pnpm
         run: npm install -g ${{ needs.prepare.outputs.packageManager }}
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app
 
-      - name: Cache pnpm store
+      - name: 缓存 pnpm store
         uses: actions/cache@v5
         with:
           path: ~/.pnpm-store
           key: pnpm-${{ runner.os }}-${{ hashFiles('app/pnpm-lock.yaml') }}
           restore-keys: pnpm-${{ runner.os }}-
 
-      - name: Install Node Dependencies
+      - name: 安装前端依赖
         run: pnpm install --no-frozen-lockfile
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app
 
-      - name: Building UI
+      - name: 编译前端
         run: pnpm run build
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app
 
-      - name: Set up JDK
+      - name: 安装前端压缩工具
+        run: npm install --no-save --package-lock=false terser html-minifier-terser postcss cssnano sharp svgo glob fast-glob
+        working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}
+
+      - name: 压缩前端静态文件
+        run: node min.js app/stage
+        working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}
+
+      - name: 安装 JDK
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "21"
 
-      - name: Set up Android NDK
+      - name: 安装 Android NDK
         # 锁定 NDK r28b(与本地开发环境同版本)。sdkmanager 不在 PATH 上
         # (actions/runner-images#13674),用全路径调用;同时预接受 SDK 许可,
         # 避免 NDK 安装卡在交互式许可确认。
@@ -302,7 +416,7 @@ jobs:
           echo "ANDROID_NDK_ROOT=$NDK_DIR" >> $GITHUB_ENV
           echo "Installed NDK r28b at $NDK_DIR"
 
-      - name: Set up gomobile
+      - name: 安装 gomobile
         # 锁定到 kernel/go.mod 中 x/mobile 模块的同一版本,避免工具与库版本漂移。
         # GOPATH 被显式指向 workspace 下,go install 的产物在 $GOPATH/bin,
         # 该目录不在默认 PATH 上,需用全路径调用并写入 $GITHUB_PATH 供后续步骤使用。
@@ -313,7 +427,7 @@ jobs:
         env:
           GOPATH: ${{ github.workspace }}/go
 
-      - name: Building Android Kernel
+      - name: 编译 Android Kernel
         run: gomobile bind -tags "fts5 sqlcipher" -ldflags "-s -w" -v -o kernel.aar -target android/arm64 -androidapi 26 ./mobile/
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/kernel
         env:
@@ -321,14 +435,14 @@ jobs:
           CGO_ENABLED: 1
           JAVA_TOOL_OPTIONS: -Dfile.encoding=UTF-8
 
-      - name: Checkout siyuan-android
+      - name: 检查 siyuan-android
         uses: actions/checkout@v6
         with:
           repository: siyuan-note/siyuan-android
           ref: main
           path: ${{ github.workspace }}/siyuan-android
 
-      - name: Patch siyuan-android Repositories
+      - name: 修正 Android 仓库源
         # siyuan-android 默认把阿里云镜像排在最前,某些依赖(如 org.apache:apache:31)
         # 在阿里云镜像缺失会导致解析失败。CI 在海外,直接走 google()/mavenCentral()
         # 更稳;sed 删除所有 maven.aliyun.com 行,保留官方仓库。
@@ -338,7 +452,7 @@ jobs:
           grep -A 6 "repositories" build.gradle | head -20
         working-directory: ${{ github.workspace }}/siyuan-android
 
-      - name: Prepare siyuan-android Build Inputs
+      - name: 准备 Android 构建输入
         run: |
           mkdir -p ${{ github.workspace }}/siyuan-android/app/libs
           cp ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/kernel/kernel.aar \
@@ -349,7 +463,7 @@ jobs:
           mkdir -p ${{ github.workspace }}/siyuan-android/app/src/main/assets
           cp app.zip ${{ github.workspace }}/siyuan-android/app/src/main/assets/app.zip
 
-      - name: Inject Signing Config
+      - name: 注入 Android 签名配置
         run: |
           echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > ${{ github.workspace }}/siyuan-android/app/siyuan-android.jks
           cat > ${{ github.workspace }}/siyuan-android/signings.gradle <<EOF
@@ -370,7 +484,7 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
 
-      - name: Building Android App
+      - name: 打包 Android 应用
         # local.properties 被 siyuan-android 的 .gitignore 忽略,CI 里需现场生成,
         # 否则 Gradle 报 "SDK location not found";gradlew 也需显式加可执行权限。
         # 产物重命名为带版本号的固定名,确保下载文件名正确(GitHub Release 的下载名
@@ -383,42 +497,110 @@ jobs:
           mv siyuan-*-official-release.apk siyuan-${{ needs.prepare.outputs.version }}.apk
         working-directory: ${{ github.workspace }}/siyuan-android
 
-      - name: Upload Build Artifacts
+      - name: 上传 Android 构建产物
         uses: actions/upload-artifact@v7
         with:
           name: siyuan-android
           path: ${{ github.workspace }}/siyuan-android/app/build/outputs/apk/official/release/siyuan-${{ needs.prepare.outputs.version }}.apk
+          if-no-files-found: error
 
   create_release:
-    name: Create Release
+    name: 发布 Release
     runs-on: ubuntu-latest
     needs: [prepare, build, build_android]
     steps:
-      - name: Download all artifacts
+      - name: 下载全部构建产物
         uses: actions/download-artifact@v8
 
-      - name: Create Release
+      - name: 安装 UPX 5.2.0
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/upx"
+          cd "$RUNNER_TEMP/upx"
+          curl -fsSL -o upx.tar.xz https://github.com/upx/upx/releases/download/v5.2.0/upx-5.2.0-amd64_linux.tar.xz
+          tar -xf upx.tar.xz
+          UPX_BIN=$(find "$RUNNER_TEMP/upx" -type f -name upx | head -1)
+          if [ -z "$UPX_BIN" ]; then
+            echo "UPX executable not found"
+            exit 1
+          fi
+          chmod +x "$UPX_BIN"
+          echo "UPX=$UPX_BIN" >> "$GITHUB_ENV"
+          "$UPX_BIN" --version
+
+      - name: 压缩可压缩 Release 文件
+        shell: bash
+        run: |
+          find . -type f \( -name "*.AppImage" -o -name "*.exe" \) -print0 | while IFS= read -r -d '' file; do
+            "$UPX" --best "$file" || echo "UPX skipped: $file"
+          done
+
+      - name: 生成 SHA256SUMS
+        run: |
+          find . -type f \
+            ! -name SHA256SUMS.txt \
+            ! -path "*/_temp/*" \
+            -print0 | sort -z | xargs -0 sha256sum | sed 's#  \./.*/#  #' > SHA256SUMS.txt
+
+      - name: 校验 Release 文件
+        run: |
+          VERSION=${{ needs.prepare.outputs.version }}
+          expected=(
+            "siyuan-linux/siyuan-${VERSION}-linux.AppImage"
+            "siyuan-linux/siyuan-${VERSION}-linux.tar.gz"
+            "siyuan-linux/siyuan-${VERSION}-linux.deb"
+            "siyuan-linux/siyuan-${VERSION}-linux.rpm"
+            "siyuan-linux-arm64/siyuan-${VERSION}-linux-arm64.AppImage"
+            "siyuan-linux-arm64/siyuan-${VERSION}-linux-arm64.tar.gz"
+            "siyuan-linux-arm64/siyuan-${VERSION}-linux-arm64.deb"
+            "siyuan-linux-arm64/siyuan-${VERSION}-linux-arm64.rpm"
+            "siyuan-mac.dmg/siyuan-${VERSION}-mac.dmg"
+            "siyuan-mac-arm64.dmg/siyuan-${VERSION}-mac-arm64.dmg"
+            "siyuan-win.exe/siyuan-${VERSION}-win.exe"
+            "siyuan-win-arm64.exe/siyuan-${VERSION}-win-arm64.exe"
+            "siyuan-android/siyuan-${VERSION}.apk"
+            "SHA256SUMS.txt"
+          )
+          missing=0
+          for file in "${expected[@]}"; do
+            if [ ! -s "$file" ]; then
+              echo "Missing release asset: $file"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: 创建 Release
         uses: ncipollo/release-action@v1
         with:
           name: ${{ needs.prepare.outputs.release_title }}
-          tag: ${{ github.ref }}
+          tag: ${{ github.ref_name }}
           body: ${{ needs.prepare.outputs.release_body }}
           draft: false
-          prerelease: true
+          prerelease: ${{ needs.prepare.outputs.prerelease }}
+          makeLatest: ${{ needs.prepare.outputs.make_latest }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Release Assets
+      - name: 上传 Release 文件
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
           VERSION=${{ needs.prepare.outputs.version }}
           gh release upload ${{ github.ref_name }} \
+            "SHA256SUMS.txt#SHA256SUMS.txt" \
             "siyuan-linux/siyuan-${VERSION}-linux.AppImage#siyuan-${VERSION}-linux.AppImage" \
             "siyuan-linux/siyuan-${VERSION}-linux.tar.gz#siyuan-${VERSION}-linux.tar.gz" \
             "siyuan-linux/siyuan-${VERSION}-linux.deb#siyuan-${VERSION}-linux.deb" \
             "siyuan-linux/siyuan-${VERSION}-linux.rpm#siyuan-${VERSION}-linux.rpm" \
+            "siyuan-linux-arm64/siyuan-${VERSION}-linux-arm64.AppImage#siyuan-${VERSION}-linux-arm64.AppImage" \
+            "siyuan-linux-arm64/siyuan-${VERSION}-linux-arm64.tar.gz#siyuan-${VERSION}-linux-arm64.tar.gz" \
+            "siyuan-linux-arm64/siyuan-${VERSION}-linux-arm64.deb#siyuan-${VERSION}-linux-arm64.deb" \
+            "siyuan-linux-arm64/siyuan-${VERSION}-linux-arm64.rpm#siyuan-${VERSION}-linux-arm64.rpm" \
             "siyuan-mac.dmg/siyuan-${VERSION}-mac.dmg#siyuan-${VERSION}-mac.dmg" \
             "siyuan-mac-arm64.dmg/siyuan-${VERSION}-mac-arm64.dmg#siyuan-${VERSION}-mac-arm64.dmg" \
             "siyuan-win.exe/siyuan-${VERSION}-win.exe#siyuan-${VERSION}-win.exe" \
+            "siyuan-win-arm64.exe/siyuan-${VERSION}-win-arm64.exe#siyuan-${VERSION}-win-arm64.exe" \
             "siyuan-android/siyuan-${VERSION}.apk#siyuan-${VERSION}.apk"
