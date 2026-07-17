@@ -549,34 +549,34 @@ jobs:
             rm -f "$file"
           done
 
-      - name: 安装 UPX 5.2.0
-        shell: bash
-        run: |
-          mkdir -p "$RUNNER_TEMP/upx"
-          cd "$RUNNER_TEMP/upx"
-          curl -fsSL -o upx.tar.xz https://github.com/upx/upx/releases/download/v5.2.0/upx-5.2.0-amd64_linux.tar.xz
-          tar -xf upx.tar.xz
-          UPX_BIN=$(find "$RUNNER_TEMP/upx" -type f -name upx | head -1)
-          if [ -z "$UPX_BIN" ]; then
-            echo "UPX executable not found"
-            exit 1
-          fi
-          chmod +x "$UPX_BIN"
-          echo "UPX_BIN_PATH=$UPX_BIN" >> "$GITHUB_ENV"
-          "$UPX_BIN" --version
+      # - name: 安装 UPX 5.2.0
+      #   shell: bash
+      #   run: |
+      #     mkdir -p "$RUNNER_TEMP/upx"
+      #     cd "$RUNNER_TEMP/upx"
+      #     curl -fsSL -o upx.tar.xz https://github.com/upx/upx/releases/download/v5.2.0/upx-5.2.0-amd64_linux.tar.xz
+      #     tar -xf upx.tar.xz
+      #     UPX_BIN=$(find "$RUNNER_TEMP/upx" -type f -name upx | head -1)
+      #     if [ -z "$UPX_BIN" ]; then
+      #       echo "UPX executable not found"
+      #       exit 1
+      #     fi
+      #     chmod +x "$UPX_BIN"
+      #     echo "UPX_BIN_PATH=$UPX_BIN" >> "$GITHUB_ENV"
+      #     "$UPX_BIN" --version
 
-      - name: 压缩可压缩 Release 文件
-        shell: bash
-        run: |
-          find . -type f -name "SiYuan-Kernel*.exe" -print0 | while IFS= read -r -d '' file; do
-            "$UPX_BIN_PATH" --best "$file" || echo "UPX skipped: $file"
-          done
-          find . -type f -name "elevator.exe" -print0 | while IFS= read -r -d '' file; do
-            "$UPX_BIN_PATH" --best "$file" || echo "UPX skipped: $file"
-          done
-          find . -type f -name "*.AppImage" -print0 | while IFS= read -r -d '' file; do
-            "$UPX_BIN_PATH" --best "$file" || echo "UPX skipped: $file"
-          done
+      # - name: 压缩可压缩 Release 文件
+      #   shell: bash
+      #   run: |
+      #     find . -type f -name "SiYuan-Kernel*.exe" -print0 | while IFS= read -r -d '' file; do
+      #       "$UPX_BIN_PATH" --best "$file" || echo "UPX skipped: $file"
+      #     done
+      #     find . -type f -name "elevator.exe" -print0 | while IFS= read -r -d '' file; do
+      #       "$UPX_BIN_PATH" --best "$file" || echo "UPX skipped: $file"
+      #     done
+      #     find . -type f -name "*.AppImage" -print0 | while IFS= read -r -d '' file; do
+      #       "$UPX_BIN_PATH" --best "$file" || echo "UPX skipped: $file"
+      #     done
 
       - name: 生成 SHA256SUMS
         run: |
