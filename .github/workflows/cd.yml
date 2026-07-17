@@ -36,7 +36,7 @@ jobs:
 
       - id: thisLatestRelease
         run: |
-          LATEST=$(gh api "repos/${{ github.repository }}/releases/latest" --jq '.tag_name' 2>/dev/null || echo "")
+          LATEST=$(gh release view --repo "${{ github.repository }}" --json tagName --jq '.tagName' 2>/dev/null || true)
           echo "release=$LATEST" >> $GITHUB_OUTPUT
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -73,8 +73,12 @@ jobs:
         id: release_info
         run: |
           echo "release_title=SiYuan v${{ steps.version.outputs.value }}" >> $GITHUB_OUTPUT
-          changelog_header=$(python scripts/parse-changelog-HEAD.py -t ${{ github.ref }} -b ${{ steps.thisLatestRelease.outputs.release }} -e ${{ steps.electronVersion.outputs.value }} ${{ github.repository }})
-          changelog=$(python scripts/parse-changelog.py -t ${{ github.ref }} ${{ github.repository }})
+          changelog_args=(-t "${{ github.ref }}" -e "${{ steps.electronVersion.outputs.value }}")
+          if [ -n "${{ steps.thisLatestRelease.outputs.release }}" ]; then
+            changelog_args+=(-b "${{ steps.thisLatestRelease.outputs.release }}")
+          fi
+          changelog_header=$(python scripts/parse-changelog-HEAD.py "${changelog_args[@]}" "${{ github.repository }}")
+          changelog=$(python scripts/parse-changelog.py -t "${{ github.ref }}" "${{ github.repository }}")
           EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
           echo "release_body<<$EOF" >> $GITHUB_OUTPUT
           echo "$changelog_header" >> $GITHUB_OUTPUT

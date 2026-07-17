@@ -1,4 +1,4 @@
-name: Upload to AUR
+name: 自动发布 AUR 包
 
 on:
   release:
@@ -14,10 +14,11 @@ on:
 
 jobs:
   build:
+    name: 生成并发布 PKGBUILD
     if: ${{ github.repository_owner == 'siyuan-note' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Check tag aka check release type
+      - name: 检查发布类型
         id: checktag
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
@@ -34,7 +35,7 @@ jobs:
           fi
         shell: bash
 
-      - name: Extract tag name
+      - name: 提取 Tag 名称
         id: get_version
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
@@ -43,7 +44,7 @@ jobs:
             echo "TAG_VERSION=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Extra tag name without v
+      - name: 提取无 v 版本号
         id: get_version_without_v
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
@@ -52,7 +53,7 @@ jobs:
             echo "TAG_VERSION_WITHOUT_V=$(echo '${{ github.event.release.tag_name }}' | sed 's/^v//')" >> $GITHUB_OUTPUT
           fi
 
-      - name: Create PKGBUILD
+      - name: 生成 PKGBUILD
         run: |
           cat << EOF >> PKGBUILD
           # maintainer: SiYuan community (https://github.com/siyuan-note/siyuan/issues/new/choose)
@@ -119,7 +120,7 @@ jobs:
           }
           EOF
 
-      - name: Publish AUR package
+      - name: 发布 AUR 包
         uses: KSXGitHub/github-actions-deploy-aur@v4.1.2
         with:
           pkgname: siyuan-bin

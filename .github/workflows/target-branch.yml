@@ -1,4 +1,4 @@
-name: Make sure new PRs are sent to dev
+name: 自动调整 PR 目标分支
 
 on:
   pull_request_target:
@@ -6,13 +6,15 @@ on:
 
 jobs:
   check-branch:
-    # https://docs.github.com/en/webhooks/webhook-events-and-payloads?actionType=edited#pull_request
+    name: 检查 PR 目标分支
+    # PR 新建或编辑目标分支时，将官方仓库中的 PR 自动指向 dev 分支。
     if: ${{ github.repository_owner == 'siyuan-note' && (github.event.action == 'opened' || github.event.changes.base) }}
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
     steps:
-      - uses: Vankka/pr-target-branch-action@v3
+      - name: 调整目标分支
+        uses: Vankka/pr-target-branch-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
