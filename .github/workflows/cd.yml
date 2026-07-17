@@ -28,19 +28,6 @@ jobs:
       - name: 检查代码
         uses: actions/checkout@v6
 
-      - name: 安装 Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-      - run: pip install PyGithub
-
-      - id: thisLatestRelease
-        run: |
-          LATEST=$(gh release view --repo "${{ github.repository }}" --json tagName --jq '.tagName' 2>/dev/null || true)
-          echo "release=$LATEST" >> $GITHUB_OUTPUT
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: 读取版本号
         id: version
         run: |
@@ -59,33 +46,19 @@ jobs:
           fi
           echo "Tag matches version: $TAG"
 
-      - name: 读取 Electron 版本
-        id: electronVersion
-        run: |
-          echo "value=$(jq .devDependencies.electron ${{ env.package_json }} -r)" >> $GITHUB_OUTPUT
-
       - name: 读取包管理器版本
         id: packageManager
         run: |
           echo "value=$(jq .packageManager ${{ env.package_json }} -r)" >> $GITHUB_OUTPUT
 
-      - name: 生成 Release 说明
+      - name: 生成 Release 信息
         id: release_info
         run: |
           echo "release_title=SiYuan v${{ steps.version.outputs.value }}" >> $GITHUB_OUTPUT
-          changelog_args=(-t "${{ github.ref }}" -e "${{ steps.electronVersion.outputs.value }}")
-          if [ -n "${{ steps.thisLatestRelease.outputs.release }}" ]; then
-            changelog_args+=(-b "${{ steps.thisLatestRelease.outputs.release }}")
-          fi
-          changelog_header=$(python scripts/parse-changelog-HEAD.py "${changelog_args[@]}" "${{ github.repository }}")
-          changelog=$(python scripts/parse-changelog.py -t "${{ github.ref }}" "${{ github.repository }}")
           EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
           echo "release_body<<$EOF" >> $GITHUB_OUTPUT
-          echo "$changelog_header" >> $GITHUB_OUTPUT
-          echo "$changelog" >> $GITHUB_OUTPUT
+          echo "SiYuan v${{ steps.version.outputs.value }}" >> $GITHUB_OUTPUT
           echo "$EOF" >> $GITHUB_OUTPUT
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 判断 Release 类型
         id: release_flags
@@ -435,7 +408,7 @@ jobs:
           GOPATH: ${{ github.workspace }}/go
 
       - name: 编译 Android Kernel
-        run: gomobile bind -tags "fts5 sqlcipher" -ldflags "-s -w" -v -o kernel.aar -target android/arm64 -androidapi 26 ./mobile/
+        run: gomobile bind -tags "fts5 sqlcipher" -ldflags "-s -w" -v -o kernel.aar -target android/arm,android/arm64,android/386,android/amd64 -androidapi 26 ./mobile/
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/kernel
         env:
           GOPATH: ${{ github.workspace }}/go
@@ -469,6 +442,48 @@ jobs:
           zip -r app.zip appearance guide stage $([ -d changelogs ] && echo changelogs)
           mkdir -p ${{ github.workspace }}/siyuan-android/app/src/main/assets
           cp app.zip ${{ github.workspace }}/siyuan-android/app/src/main/assets/app.zip
+
+      - name: 定制 Android 应用信息和 ABI 拆包
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          root = Path(".")
+          for strings in root.glob("app/src/**/res/values*/strings.xml"):
+              text = strings.read_text(encoding="utf-8")
+              if 'name="app_name"' in text:
+                  text = re.sub(r'(<string\s+name="app_name"[^>]*>).*?(</string>)', r'\1思源笔记\2', text)
+                  strings.write_text(text, encoding="utf-8")
+
+            for manifest in root.glob("app/src/**/AndroidManifest.xml"):
+              text = manifest.read_text(encoding="utf-8")
+              if "android:label" in text:
+                text = re.sub(r'android:label="[^"]+"', 'android:label="思源笔记"', text)
+              else:
+                text = re.sub(r'(<application\b)', r'\1 android:label="思源笔记"', text, count=1)
+              manifest.write_text(text, encoding="utf-8")
+
+          build_file = root / "app" / "build.gradle"
+          text = build_file.read_text(encoding="utf-8")
+          if "universalApk true" not in text:
+              text = re.sub(
+                  r'(android\s*\{)',
+                  r'''\1
+              splits {
+                  abi {
+                      enable true
+                      reset()
+                      include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+                      universalApk true
+                  }
+              }''',
+                  text,
+                  count=1,
+              )
+              build_file.write_text(text, encoding="utf-8")
+          PY
+        working-directory: ${{ github.workspace }}/siyuan-android
 
       - name: 注入 Android 签名配置
         run: |
@@ -522,14 +537,24 @@ jobs:
           chmod +x ./gradlew
           ./gradlew assembleOfficialRelease
           cd app/build/outputs/apk/official/release
-          mv siyuan-*-official-release.apk siyuan-${{ needs.prepare.outputs.version }}.apk
+          for apk in *.apk; do
+            case "$apk" in
+              *armeabi-v7a*) target="armeabi-v7a" ;;
+              *arm64-v8a*) target="arm64-v8a" ;;
+              *x86_64*) target="x86_64" ;;
+              *x86*) target="x86" ;;
+              *universal*) target="universal" ;;
+              *) target="universal" ;;
+            esac
+            mv "$apk" "siyuan-${{ needs.prepare.outputs.version }}-android-${target}.apk"
+          done
         working-directory: ${{ github.workspace }}/siyuan-android
 
       - name: 上传 Android 构建产物
         uses: actions/upload-artifact@v7
         with:
           name: siyuan-android
-          path: ${{ github.workspace }}/siyuan-android/app/build/outputs/apk/official/release/siyuan-${{ needs.prepare.outputs.version }}.apk
+          path: ${{ github.workspace }}/siyuan-android/app/build/outputs/apk/official/release/siyuan-${{ needs.prepare.outputs.version }}-android-*.apk
           if-no-files-found: error
 
   create_release:
@@ -603,7 +628,11 @@ jobs:
             "siyuan-win.exe/siyuan-${VERSION}-win-portable.exe"
             "siyuan-win-arm64.exe/siyuan-${VERSION}-win-arm64.exe"
             "siyuan-win-arm64.exe/siyuan-${VERSION}-win-arm64-portable.exe"
-            "siyuan-android/siyuan-${VERSION}.apk"
+            "siyuan-android/siyuan-${VERSION}-android-universal.apk"
+            "siyuan-android/siyuan-${VERSION}-android-armeabi-v7a.apk"
+            "siyuan-android/siyuan-${VERSION}-android-arm64-v8a.apk"
+            "siyuan-android/siyuan-${VERSION}-android-x86.apk"
+            "siyuan-android/siyuan-${VERSION}-android-x86_64.apk"
             "SHA256SUMS.txt"
           )
           missing=0
@@ -651,4 +680,8 @@ jobs:
             "siyuan-win.exe/siyuan-${VERSION}-win-portable.exe#siyuan-${VERSION}-win-portable.exe" \
             "siyuan-win-arm64.exe/siyuan-${VERSION}-win-arm64.exe#siyuan-${VERSION}-win-arm64.exe" \
             "siyuan-win-arm64.exe/siyuan-${VERSION}-win-arm64-portable.exe#siyuan-${VERSION}-win-arm64-portable.exe" \
-            "siyuan-android/siyuan-${VERSION}.apk#siyuan-${VERSION}.apk"
+            "siyuan-android/siyuan-${VERSION}-android-universal.apk#siyuan-${VERSION}-android-universal.apk" \
+            "siyuan-android/siyuan-${VERSION}-android-armeabi-v7a.apk#siyuan-${VERSION}-android-armeabi-v7a.apk" \
+            "siyuan-android/siyuan-${VERSION}-android-arm64-v8a.apk#siyuan-${VERSION}-android-arm64-v8a.apk" \
+            "siyuan-android/siyuan-${VERSION}-android-x86.apk#siyuan-${VERSION}-android-x86.apk" \
+            "siyuan-android/siyuan-${VERSION}-android-x86_64.apk#siyuan-${VERSION}-android-x86_64.apk"

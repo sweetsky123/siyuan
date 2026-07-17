@@ -50,7 +50,7 @@ func NewAppearance() *Appearance {
 		CodeBlockThemeLight: "github",
 		CodeBlockThemeDark:  "base16/dracula",
 		Lang:                "en",
-		CloseButtonBehavior: 0,
+		CloseButtonBehavior: 1,
 		HideToolbar:         true,
 		HideStatusBar:       false,
 		StatusBar:           &util.StatusBar{},

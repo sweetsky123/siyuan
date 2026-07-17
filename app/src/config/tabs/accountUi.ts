@@ -14,7 +14,7 @@ import {closePanel} from "../../mobile/util/closePanel";
 /// #endif
 import md5 from "blueimp-md5";
 import type {SettingTabBuilder} from "../setting/builder";
-import {patchSyncConfig, refreshSyncCloudSpaceGroup} from "./syncRuntime";
+import {refreshSyncCloudSpaceGroup} from "./syncRuntime";
 import {escapeAttr, escapeHtml} from "../../util/escape";
 
 /** 账号节：由 syncTab 注册 */
@@ -66,16 +66,6 @@ export const registerAccountGroup = (tab: SettingTabBuilder) => {
         html: genAccountPaymentHTML,
         afterMount: bindAccountPaymentEvent,
     });
-    if (!isMobile()) {
-        group.switch("account.displayVIP", {
-            title: window.siyuan.languages.accountDisplayVIP,
-            save: (value) => patchSyncConfig("account.displayVIP", value),
-        });
-        group.switch("account.displayTitle", {
-            title: window.siyuan.languages.accountDisplayTitle,
-            save: (value) => patchSyncConfig("account.displayTitle", value),
-        });
-    }
 };
 
 const genAccountMainHTML = () => {
@@ -475,8 +465,6 @@ const confirmDeactivateAccount = () => {
 
 export const updateAccountSwitchesVisibility = (accountSettingsRoot: Element) => {
     const user = window.siyuan.user;
-    accountSettingsRoot.querySelector(`#${CSS.escape("account.displayTitle")}`)?.closest(".config-item")?.classList.toggle("fn__none", !user || user.userTitles.length === 0);
-    accountSettingsRoot.querySelector(`#${CSS.escape("account.displayVIP")}`)?.closest(".config-item")?.classList.toggle("fn__none", !user);
     accountSettingsRoot.querySelector("#configAccountPayment")?.classList.toggle("fn__none", !user);
 };
 
@@ -494,57 +482,12 @@ const renderAccount = (accountSettingsRoot: Element) => {
     bindAccountPaymentEvent(accountSettingsRoot);
 };
 
-const genVIPIconHTML = (className = "") =>
-    `<svg${className ? ` class="${className}"` : ""}><use xlink:href="#iconVIP"></use></svg>`;
-
-const genToolbarItemHTML = (ariaLabel: string, svg: string) =>
-    `<div class="toolbar__item ariaLabel" aria-label="${ariaLabel}">${svg}</div>`;
-
 export const onSetaccount = () => {
     /// #if !MOBILE
     const toolbarVIPEl = document.getElementById("toolbarVIP");
     if (!toolbarVIPEl) {
         return;
     }
-    const parts: string[] = [];
-    if (window.siyuan.config.account.displayVIP) {
-        if (!window.siyuan.user) {
-            // 未登录
-            parts.push(genToolbarItemHTML(window.siyuan.languages.freeSub, genVIPIconHTML("ft__error")));
-        } else {
-            const isOneTimePay = window.siyuan.user.userSiYuanOneTimePayStatus === 1;
-            if (window.siyuan.user.userSiYuanProExpireTime === -1) {
-                // 终身会员
-                parts.push(genToolbarItemHTML(window.siyuan.languages.account12, Constants.SIYUAN_IMAGE_VIP));
-            } else if (window.siyuan.user.userSiYuanProExpireTime > 0) {
-                // 订阅有效（未过期）
-                if (window.siyuan.user.userSiYuanSubscriptionPlan === 2) {
-                    // 试用订阅
-                    parts.push(genToolbarItemHTML(window.siyuan.languages.account3, genVIPIconHTML()));
-                } else {
-                    // 付费订阅
-                    parts.push(genToolbarItemHTML(window.siyuan.languages.account10, genVIPIconHTML("ft__secondary")));
-                }
-            } else if (window.siyuan.user.userSiYuanSubscriptionStatus === 2 && !isOneTimePay) {
-                // 订阅过期
-                parts.push(genToolbarItemHTML(window.siyuan.languages.accountSubscriptionExpired, genVIPIconHTML("ft__error")));
-            } else if (window.siyuan.user.userSiYuanSubscriptionStatus === -1 && !isOneTimePay) {
-                // 未订阅过
-                parts.push(genToolbarItemHTML(window.siyuan.languages.freeSub, genVIPIconHTML("ft__error")));
-            }
-            if (isOneTimePay) {
-                // 功能特性已付费
-                parts.push(genToolbarItemHTML(window.siyuan.languages.onepay, genVIPIconHTML("ft__success")));
-            }
-        }
-    }
-
-    if (window.siyuan.config.account.displayTitle && window.siyuan.user) {
-        window.siyuan.user.userTitles.forEach(item => {
-            parts.push(genToolbarItemHTML(`${item.name}：${item.desc}`, item.icon));
-        });
-    }
-
-    toolbarVIPEl.innerHTML = parts.join("");
+    toolbarVIPEl.innerHTML = "";
     /// #endif
 };
