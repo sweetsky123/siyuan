@@ -375,50 +375,10 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      - name: 安装 Android NDK
-        # 锁定 NDK r28b(与本地开发环境同版本)。sdkmanager 不在 PATH 上
-        # (actions/runner-images#13674),用全路径调用;同时预接受 SDK 许可,
-        # 避免 NDK 安装卡在交互式许可确认。
-        run: |
-          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          if [ ! -x "$SDKMANAGER" ]; then
-            SDKMANAGER=$(ls "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager 2>/dev/null | head -1)
-          fi
-          if [ -z "$SDKMANAGER" ]; then
-            echo "ERROR: sdkmanager not found under $ANDROID_HOME/cmdline-tools/"
-            exit 1
-          fi
-          echo "Using sdkmanager: $SDKMANAGER"
-          yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
-          "$SDKMANAGER" "ndk;28.2.13676358" > /dev/null
-          NDK_DIR="$ANDROID_HOME/ndk/28.2.13676358"
-          echo "ANDROID_NDK_HOME=$NDK_DIR" >> $GITHUB_ENV
-          echo "ANDROID_NDK_ROOT=$NDK_DIR" >> $GITHUB_ENV
-          echo "Installed NDK r28b at $NDK_DIR"
-
-      - name: 安装 gomobile
-        # 锁定到 kernel/go.mod 中 x/mobile 模块的同一版本,避免工具与库版本漂移。
-        # GOPATH 被显式指向 workspace 下,go install 的产物在 $GOPATH/bin,
-        # 该目录不在默认 PATH 上,需用全路径调用并写入 $GITHUB_PATH 供后续步骤使用。
-        run: |
-          go install golang.org/x/mobile/cmd/gomobile@2553ed8ce294
-          echo "$GOPATH/bin" >> $GITHUB_PATH
-          "$GOPATH/bin/gomobile" init
-        env:
-          GOPATH: ${{ github.workspace }}/go
-
-      - name: 编译 Android Kernel
-        run: gomobile bind -tags "fts5 sqlcipher" -ldflags "-s -w" -v -o kernel.aar -target android/arm,android/arm64,android/386,android/amd64 -androidapi 26 ./mobile/
-        working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/kernel
-        env:
-          GOPATH: ${{ github.workspace }}/go
-          CGO_ENABLED: 1
-          JAVA_TOOL_OPTIONS: -Dfile.encoding=UTF-8
-
-      - name: 检查 siyuan-android
+      - name: 检出 siyuan-android
         uses: actions/checkout@v6
         with:
-          repository: siyuan-note/siyuan-android
+          repository: sweetsky123/siyuan-android
           ref: main
           path: ${{ github.workspace }}/siyuan-android
 
@@ -442,48 +402,6 @@ jobs:
           zip -r app.zip appearance guide stage $([ -d changelogs ] && echo changelogs)
           mkdir -p ${{ github.workspace }}/siyuan-android/app/src/main/assets
           cp app.zip ${{ github.workspace }}/siyuan-android/app/src/main/assets/app.zip
-
-      - name: 定制 Android 应用信息和 ABI 拆包
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-
-          root = Path(".")
-          for strings in root.glob("app/src/**/res/values*/strings.xml"):
-              text = strings.read_text(encoding="utf-8")
-              if 'name="app_name"' in text:
-                  text = re.sub(r'(<string\s+name="app_name"[^>]*>).*?(</string>)', r'\1思源笔记\2', text)
-                  strings.write_text(text, encoding="utf-8")
-
-            for manifest in root.glob("app/src/**/AndroidManifest.xml"):
-              text = manifest.read_text(encoding="utf-8")
-              if "android:label" in text:
-                text = re.sub(r'android:label="[^"]+"', 'android:label="思源笔记"', text)
-              else:
-                text = re.sub(r'(<application\b)', r'\1 android:label="思源笔记"', text, count=1)
-              manifest.write_text(text, encoding="utf-8")
-
-          build_file = root / "app" / "build.gradle"
-          text = build_file.read_text(encoding="utf-8")
-          if "universalApk true" not in text:
-              text = re.sub(
-                  r'(android\s*\{)',
-                  r'''\1
-              splits {
-                  abi {
-                      enable true
-                      reset()
-                      include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
-                      universalApk true
-                  }
-              }''',
-                  text,
-                  count=1,
-              )
-              build_file.write_text(text, encoding="utf-8")
-          PY
-        working-directory: ${{ github.workspace }}/siyuan-android
 
       - name: 注入 Android 签名配置
         run: |
