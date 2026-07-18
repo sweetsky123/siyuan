@@ -28,6 +28,8 @@ import (
 	"math"
 	mathRand "math/rand"
 	"mime"
+	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"path"
@@ -64,6 +66,103 @@ import (
 	"github.com/siyuan-note/siyuan/kernel/util"
 	"github.com/studio-b12/gowebdav"
 )
+
+type syncHeaderTransport struct {
+	base    http.RoundTripper
+	headers http.Header
+}
+
+func (transport *syncHeaderTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	base := transport.base
+	if nil == base {
+		base = http.DefaultTransport
+	}
+	clone := req.Clone(req.Context())
+	for name, values := range transport.headers {
+		clone.Header.Del(name)
+		for _, value := range values {
+			clone.Header.Add(name, value)
+		}
+	}
+	return base.RoundTrip(clone)
+}
+
+func newSyncHeaders(headers []*conf.SyncHeader, userAgent, referer string) http.Header {
+	ret := http.Header{}
+	for _, header := range headers {
+		if nil == header {
+			continue
+		}
+		name := strings.TrimSpace(resolveSyncSecretsVars(header.Name))
+		value := resolveSyncSecretsVars(header.Value)
+		if "" == name {
+			continue
+		}
+		ret.Add(name, value)
+	}
+
+	userAgent = strings.TrimSpace(resolveSyncSecretsVars(userAgent))
+	if "" == userAgent {
+		userAgent = util.UserAgent
+	}
+	ret.Set("User-Agent", userAgent)
+	if referer = strings.TrimSpace(resolveSyncSecretsVars(referer)); "" != referer {
+		ret.Set("Referer", referer)
+	}
+	return ret
+}
+
+func resolveSyncSecretsVars(in string) string {
+	return conf.ResolveSecretsVars(Conf.Secrets, Conf.Variables, in)
+}
+
+func newSyncTransport(endpoint string, skipTlsVerify bool, dnsRecordType, dnsRecordValue string) *http.Transport {
+	transport := httpclient.NewTransport(skipTlsVerify)
+	dnsRecordType = strings.ToUpper(strings.TrimSpace(resolveSyncSecretsVars(dnsRecordType)))
+	dnsRecordValue = strings.TrimSpace(resolveSyncSecretsVars(dnsRecordValue))
+	if "" == dnsRecordType || "" == dnsRecordValue {
+		return transport
+	}
+
+	endpointHost := syncEndpointHost(endpoint)
+	if "" == endpointHost {
+		return transport
+	}
+	dialer := &net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}
+	transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+		host, port, err := net.SplitHostPort(addr)
+		if nil != err || !strings.EqualFold(host, endpointHost) {
+			return dialer.DialContext(ctx, network, addr)
+		}
+
+		switch dnsRecordType {
+		case "A", "CNAME":
+			return dialer.DialContext(ctx, network, net.JoinHostPort(dnsRecordValue, port))
+		default:
+			return dialer.DialContext(ctx, network, addr)
+		}
+	}
+	return transport
+}
+
+func syncEndpointHost(endpoint string) string {
+	endpoint = strings.TrimSpace(endpoint)
+	if "" == endpoint {
+		return ""
+	}
+	parsed, err := url.Parse(endpoint)
+	if nil != err || "" == parsed.Host {
+		parsed, err = url.Parse("https://" + endpoint)
+	}
+	if nil != err {
+		return ""
+	}
+	host := parsed.Hostname()
+	if "" == host {
+		return ""
+	}
+	return strings.TrimSuffix(host, ".")
+}
 
 // AutoPurgeRepoJob 自动清理数据仓库 https://github.com/siyuan-note/siyuan/issues/13091
 func AutoPurgeRepoJob() {
@@ -2416,8 +2515,8 @@ func newRepository() (ret *dejavu.Repo, err error) {
 	case conf.ProviderSiYuan:
 		cloudRepo = cloud.NewSiYuan(&cloud.BaseCloud{Conf: cloudConf})
 	case conf.ProviderS3:
-		// 显式注入 SiYuan UA，覆盖 aws SDK 默认 UA（含架构、Go 版本、SDK 版本等冗余信息），便于 S3 服务端按 SiYuan/ 前缀识别加白名单
-		s3HTTPClient := httpclient.NewUserAgentClient(httpclient.NewTransport(cloudConf.S3.SkipTlsVerify))
+		transport := newSyncTransport(cloudConf.S3.Endpoint, cloudConf.S3.SkipTlsVerify, Conf.Sync.S3.DNSRecordType, Conf.Sync.S3.DNSRecordValue)
+		s3HTTPClient := &http.Client{Transport: &syncHeaderTransport{base: transport, headers: newSyncHeaders(Conf.Sync.S3.Headers, Conf.Sync.S3.UserAgent, Conf.Sync.S3.Referer)}}
 		s3HTTPClient.Timeout = time.Duration(cloudConf.S3.Timeout) * time.Second
 		cloudRepo = cloud.NewS3(&cloud.BaseCloud{Conf: cloudConf}, s3HTTPClient)
 	case conf.ProviderWebDAV:
@@ -2425,9 +2524,11 @@ func newRepository() (ret *dejavu.Repo, err error) {
 		a := cloudConf.WebDAV.Username + ":" + cloudConf.WebDAV.Password
 		auth := "Basic " + base64.StdEncoding.EncodeToString([]byte(a))
 		webdavClient.SetHeader("Authorization", auth)
-		webdavClient.SetHeader("User-Agent", util.UserAgent)
+		for name, values := range newSyncHeaders(Conf.Sync.WebDAV.Headers, Conf.Sync.WebDAV.UserAgent, Conf.Sync.WebDAV.Referer) {
+			webdavClient.SetHeader(name, strings.Join(values, ", "))
+		}
 		webdavClient.SetTimeout(time.Duration(cloudConf.WebDAV.Timeout) * time.Second)
-		webdavClient.SetTransport(httpclient.NewTransport(cloudConf.WebDAV.SkipTlsVerify))
+		webdavClient.SetTransport(newSyncTransport(cloudConf.WebDAV.Endpoint, cloudConf.WebDAV.SkipTlsVerify, Conf.Sync.WebDAV.DNSRecordType, Conf.Sync.WebDAV.DNSRecordValue))
 		cloudRepo = cloud.NewWebDAV(&cloud.BaseCloud{Conf: cloudConf}, webdavClient)
 	case conf.ProviderLocal:
 		cloudRepo = cloud.NewLocal(&cloud.BaseCloud{Conf: cloudConf})
@@ -2701,11 +2802,11 @@ func buildCloudConf() (ret *cloud.Conf, err error) {
 		ret.Endpoint = util.GetCloudSyncServer()
 	case conf.ProviderS3:
 		ret.S3 = &cloud.ConfS3{
-			Endpoint:       Conf.Sync.S3.Endpoint,
-			AccessKey:      Conf.Sync.S3.AccessKey,
-			SecretKey:      Conf.Sync.S3.SecretKey,
-			Bucket:         Conf.Sync.S3.Bucket,
-			Region:         Conf.Sync.S3.Region,
+			Endpoint:       resolveSyncSecretsVars(Conf.Sync.S3.Endpoint),
+			AccessKey:      resolveSyncSecretsVars(Conf.Sync.S3.AccessKey),
+			SecretKey:      resolveSyncSecretsVars(Conf.Sync.S3.SecretKey),
+			Bucket:         resolveSyncSecretsVars(Conf.Sync.S3.Bucket),
+			Region:         resolveSyncSecretsVars(Conf.Sync.S3.Region),
 			PathStyle:      Conf.Sync.S3.PathStyle,
 			SkipTlsVerify:  Conf.Sync.S3.SkipTlsVerify,
 			Timeout:        Conf.Sync.S3.Timeout,
@@ -2713,16 +2814,16 @@ func buildCloudConf() (ret *cloud.Conf, err error) {
 		}
 	case conf.ProviderWebDAV:
 		ret.WebDAV = &cloud.ConfWebDAV{
-			Endpoint:       Conf.Sync.WebDAV.Endpoint,
-			Username:       Conf.Sync.WebDAV.Username,
-			Password:       Conf.Sync.WebDAV.Password,
+			Endpoint:       resolveSyncSecretsVars(Conf.Sync.WebDAV.Endpoint),
+			Username:       resolveSyncSecretsVars(Conf.Sync.WebDAV.Username),
+			Password:       resolveSyncSecretsVars(Conf.Sync.WebDAV.Password),
 			SkipTlsVerify:  Conf.Sync.WebDAV.SkipTlsVerify,
 			Timeout:        Conf.Sync.WebDAV.Timeout,
 			ConcurrentReqs: Conf.Sync.WebDAV.ConcurrentReqs,
 		}
 	case conf.ProviderLocal:
 		ret.Local = &cloud.ConfLocal{
-			Endpoint:       Conf.Sync.Local.Endpoint,
+			Endpoint:       resolveSyncSecretsVars(Conf.Sync.Local.Endpoint),
 			Timeout:        Conf.Sync.Local.Timeout,
 			ConcurrentReqs: Conf.Sync.Local.ConcurrentReqs,
 		}

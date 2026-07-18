@@ -43,6 +43,16 @@
       flex-wrap: wrap;
       align-items: flex-start;
 
+      .config-provider-label {
+        display: block;
+      }
+
+      .config-sync-placeholder {
+        flex: 1 1 100%;
+        width: 100%;
+        max-width: 100%;
+      }
+
       & > .fn__flex-1 {
         flex: 1 1 100%;
         min-width: 0;
@@ -63,6 +73,21 @@
         width: 100%;
         max-width: 100%;
         margin-top: 8px;
+      }
+    }
+
+    &-sync-headers {
+      flex-wrap: wrap;
+
+      &__body {
+        flex: 1 1 100%;
+        width: 100%;
+        max-width: 100%;
+        margin-top: 8px;
+      }
+
+      &__row {
+        grid-template-columns: 1fr;
       }
     }
 

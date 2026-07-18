@@ -274,6 +274,7 @@ jobs:
           name: siyuan-${{ matrix.config.suffix }}
           path: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.suffix }}
           if-no-files-found: error
+          retention-days: 1
 
       - name: 上传 Windows 构建产物
         if: matrix.config.goos == 'windows'
@@ -284,6 +285,7 @@ jobs:
             ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.suffix }}
             ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.goarch == 'arm64' && 'win-arm64-portable.exe' || 'win-portable.exe' }}
           if-no-files-found: error
+          retention-days: 1
 
       - name: 上传 Linux AppImage
         if: matrix.config.goos == 'linux'
@@ -292,6 +294,7 @@ jobs:
           name: siyuan-${{ matrix.config.suffix }}.AppImage
           path: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.suffix }}.AppImage
           if-no-files-found: error
+          retention-days: 1
 
       - name: 上传 Linux tar.gz
         if: matrix.config.goos == 'linux'
@@ -300,6 +303,7 @@ jobs:
           name: siyuan-${{ matrix.config.suffix }}.tar.gz
           path: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.suffix }}.tar.gz
           if-no-files-found: error
+          retention-days: 1
 
       - name: 上传 Linux deb
         if: matrix.config.goos == 'linux'
@@ -308,6 +312,7 @@ jobs:
           name: siyuan-${{ matrix.config.suffix }}.deb
           path: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.suffix }}.deb
           if-no-files-found: error
+          retention-days: 1
 
       - name: 上传 Linux rpm
         if: matrix.config.goos == 'linux'
@@ -316,6 +321,7 @@ jobs:
           name: siyuan-${{ matrix.config.suffix }}.rpm
           path: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.suffix }}.rpm
           if-no-files-found: error
+          retention-days: 1
 
   build_android:
     runs-on: ubuntu-latest
@@ -508,6 +514,7 @@ jobs:
           name: siyuan-android
           path: ${{ github.workspace }}/siyuan-android/app/build/outputs/apk/official/release/siyuan-${{ needs.prepare.outputs.version }}-android-*.apk
           if-no-files-found: error
+          retention-days: 1
 
   create_release:
     name: 发布 Release

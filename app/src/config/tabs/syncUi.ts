@@ -5,6 +5,8 @@ import {isInIOS, saveExportFile} from "../../protyle/util/compatibility";
 import {isPaidUser, needSubscribe} from "../../util/needSubscribe";
 import {getCloudURL} from "../util/about";
 
+type SyncNamedItem = Config.ISecret | Config.IVariable;
+
 /** 按当前配置刷新同步 Tab 可见性与动态面板（供 syncRuntime 调用） */
 export const refreshSyncTabPanels = (root: Element) => {
     setSyncConfigItemVisible(root);
@@ -54,7 +56,10 @@ type SyncProviderConfigKey = Extract<keyof Config.ISync, "s3" | "webdav" | "loca
 type SyncProviderFieldDef =
     | {type: "input"; label: string; id: string; attrs?: string}
     | {type: "password"; label: string; id: string}
-    | {type: "select"; label: string; id: string; options: {value: string; label: string}[]};
+    | {type: "select"; label: string; id: string; options: {value: string; label: string}[]}
+    | {type: "headers"; label: string; id: "headers"};
+
+const genBilingualLabel = (primary: string, secondary: string) => `<span class="config-provider-label"><span>${primary}</span><span>（${secondary}）</span></span>`;
 
 type SyncProviderIntroDef = {
     genIntro: () => string;
@@ -128,21 +133,30 @@ const SYNC_PROVIDER_DEFS: Record<Config.ISync["provider"], SyncProviderDef> = {
 </div>`,
         genUnpaidIntro: genThirdPartyUnpaidIntro,
         fields: [
-            {type: "input", label: "Endpoint", id: "endpoint"},
-            {type: "input", label: "Access Key", id: "accessKey"},
-            {type: "password", label: "Secret Key", id: "secretKey"},
-            {type: "input", label: "Bucket", id: "bucket"},
-            {type: "input", label: "Region ID", id: "region"},
-            {type: "input", label: "Timeout (s)", id: "timeout", attrs: 'type="number" min="7" max="300"'},
-            {type: "select", label: "Addressing", id: "pathStyle", options: [
-                {value: "true", label: "Path-style"},
-                {value: "false", label: "Virtual-hosted-style"},
+            {type: "input", label: genBilingualLabel("服务端点", "Endpoint"), id: "endpoint"},
+            {type: "input", label: genBilingualLabel("访问密钥", "Access Key"), id: "accessKey"},
+            {type: "password", label: genBilingualLabel("秘密访问密钥", "Secret Key"), id: "secretKey"},
+            {type: "input", label: genBilingualLabel("存储桶", "Bucket"), id: "bucket"},
+            {type: "input", label: genBilingualLabel("区域 ID", "Region ID"), id: "region"},
+            {type: "input", label: genBilingualLabel("超时时间（秒）", "Timeout"), id: "timeout", attrs: 'inputmode="numeric" data-number="true"'},
+            {type: "select", label: genBilingualLabel("寻址方式", "Addressing"), id: "pathStyle", options: [
+                {value: "true", label: "路径样式（Path-style）"},
+                {value: "false", label: "虚拟托管样式（Virtual-hosted-style）"},
             ]},
-            {type: "select", label: "TLS Verify", id: "skipTlsVerify", options: [
-                {value: "false", label: "Verify"},
-                {value: "true", label: "Skip"},
+            {type: "select", label: genBilingualLabel("TLS 验证", "TLS Verify"), id: "skipTlsVerify", options: [
+                {value: "false", label: "启用验证（Verify）"},
+                {value: "true", label: "跳过验证（Skip）"},
             ]},
-            {type: "input", label: "Concurrent Reqs", id: "concurrentReqs", attrs: 'type="number" min="1" max="16"'},
+            {type: "input", label: genBilingualLabel("并发请求数", "Concurrent Reqs"), id: "concurrentReqs", attrs: 'inputmode="numeric" data-number="true"'},
+            {type: "input", label: genBilingualLabel("User-Agent 请求头", "可选"), id: "userAgent"},
+            {type: "input", label: genBilingualLabel("Referer 请求头", "可选"), id: "referer"},
+            {type: "headers", label: genBilingualLabel("自定义请求头", "Headers"), id: "headers"},
+            {type: "select", label: genBilingualLabel("DNS 解析记录类型", "可选"), id: "dnsRecordType", options: [
+                {value: "", label: "-"},
+                {value: "A", label: "A"},
+                {value: "CNAME", label: "CNAME"},
+            ]},
+            {type: "input", label: genBilingualLabel("DNS 解析记录值", "IP / CNAME"), id: "dnsRecordValue"},
         ],
     },
     3: {
@@ -157,15 +171,24 @@ const SYNC_PROVIDER_DEFS: Record<Config.ISync["provider"], SyncProviderDef> = {
 </div>`,
         genUnpaidIntro: genThirdPartyUnpaidIntro,
         fields: [
-            {type: "input", label: "Endpoint", id: "endpoint"},
-            {type: "input", label: "Username", id: "username"},
-            {type: "password", label: "Password", id: "password"},
-            {type: "input", label: "Timeout (s)", id: "timeout", attrs: 'type="number" min="7" max="300"'},
-            {type: "select", label: "TLS Verify", id: "skipTlsVerify", options: [
-                {value: "false", label: "Verify"},
-                {value: "true", label: "Skip"},
+            {type: "input", label: genBilingualLabel("服务端点", "Endpoint"), id: "endpoint"},
+            {type: "input", label: genBilingualLabel("用户名", "Username"), id: "username"},
+            {type: "password", label: genBilingualLabel("密码", "Password"), id: "password"},
+            {type: "input", label: genBilingualLabel("超时时间（秒）", "Timeout"), id: "timeout", attrs: 'inputmode="numeric" data-number="true"'},
+            {type: "select", label: genBilingualLabel("TLS 验证", "TLS Verify"), id: "skipTlsVerify", options: [
+                {value: "false", label: "启用验证（Verify）"},
+                {value: "true", label: "跳过验证（Skip）"},
             ]},
-            {type: "input", label: "Concurrent Reqs", id: "concurrentReqs", attrs: 'type="number" min="1" max="16"'},
+            {type: "input", label: genBilingualLabel("并发请求数", "Concurrent Reqs"), id: "concurrentReqs", attrs: 'inputmode="numeric" data-number="true"'},
+            {type: "input", label: genBilingualLabel("User-Agent 请求头", "可选"), id: "userAgent"},
+            {type: "input", label: genBilingualLabel("Referer 请求头", "可选"), id: "referer"},
+            {type: "headers", label: genBilingualLabel("自定义请求头", "Headers"), id: "headers"},
+            {type: "select", label: genBilingualLabel("DNS 解析记录类型", "可选"), id: "dnsRecordType", options: [
+                {value: "", label: "-"},
+                {value: "A", label: "A"},
+                {value: "CNAME", label: "CNAME"},
+            ]},
+            {type: "input", label: genBilingualLabel("DNS 解析记录值", "IP / CNAME"), id: "dnsRecordValue"},
         ],
     },
     4: {
@@ -185,9 +208,9 @@ const SYNC_PROVIDER_DEFS: Record<Config.ISync["provider"], SyncProviderDef> = {
     ${window.siyuan.languages.mobileNotSupport}
 </div>`,
         fields: [
-            {type: "input", label: "Endpoint", id: "endpoint"},
-            {type: "input", label: "Timeout (s)", id: "timeout", attrs: 'type="number" min="7" max="300"'},
-            {type: "input", label: "Concurrent Reqs", id: "concurrentReqs", attrs: 'type="number" min="1" max="1024"'},
+            {type: "input", label: genBilingualLabel("服务端点", "Endpoint"), id: "endpoint"},
+            {type: "input", label: genBilingualLabel("超时时间（秒）", "Timeout"), id: "timeout", attrs: 'inputmode="numeric" data-number="true"'},
+            {type: "input", label: genBilingualLabel("并发请求数", "Concurrent Reqs"), id: "concurrentReqs", attrs: 'inputmode="numeric" data-number="true"'},
         ],
     },
 };
@@ -238,6 +261,26 @@ const buildProviderConfigKeywords = (): string[] => {
         "Concurrent Reqs",
         "Username",
         "Password",
+        "User-Agent",
+        "Referer",
+        "Headers",
+        "DNS Record Type",
+        "DNS Record Value",
+        "服务端点",
+        "访问密钥",
+        "秘密访问密钥",
+        "存储桶",
+        "区域 ID",
+        "超时时间",
+        "寻址方式",
+        "TLS 验证",
+        "并发请求数",
+        "请求头",
+        "自定义请求头",
+        "DNS 解析记录类型",
+        "DNS 解析记录值",
+        "用户名",
+        "密码",
     ];
 };
 
@@ -272,21 +315,33 @@ const genProviderField = (field: SyncProviderFieldDef): string => {
         case "select":
             return genProviderFlexSelect(field.label, field.id, field.options.map((option) => `
     <option value="${option.value}">${option.label}</option>`).join(""));
+        case "headers":
+            return genProviderHeaders(field.label, field.id);
     }
 };
+
+const escapeAttr = (value: string) => value.replaceAll("&", "&amp;").replaceAll("\"", "&quot;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+
+const genPlaceholderButton = () => `<button class="block__icon block__icon--show" data-action="insertSyncPlaceholder" type="button" aria-label="Insert secret or variable">
+    <svg><use xlink:href="#iconKeymap"></use></svg>
+</button>`;
 
 const genProviderFlexInput = (label: string, id: string, attrs = "") => `<div class="b3-label b3-label--inner fn__flex">
     <div class="fn__flex-center fn__size200">${label}</div>
     <div class="fn__space"></div>
-    <input id="${id}" class="b3-text-field fn__block"${attrs ? ` ${attrs}` : ""}>
+    <div class="config-sync-placeholder fn__block">
+        <input id="${id}" class="b3-text-field fn__block"${attrs ? ` ${attrs}` : ""}>
+        ${genPlaceholderButton()}
+    </div>
 </div>`;
 
 const genProviderFlexPassword = (label: string, id: string) => `<div class="b3-label b3-label--inner fn__flex">
     <div class="fn__flex-center fn__size200">${label}</div>
     <div class="fn__space"></div>
-    <div class="b3-form__icona fn__block">
+    <div class="config-sync-placeholder b3-form__icona fn__block">
         <input id="${id}" type="password" class="b3-text-field b3-form__icona-input">
         <svg class="b3-form__icona-icon" data-action="togglePassword"><use xlink:href="#iconEye"></use></svg>
+        ${genPlaceholderButton()}
     </div>
 </div>`;
 
@@ -296,6 +351,31 @@ const genProviderFlexSelect = (label: string, id: string, optionsHtml: string) =
     <select class="b3-select fn__block" id="${id}">
         ${optionsHtml}
     </select>
+</div>`;
+
+const genProviderHeaders = (label: string, id: "headers") => `<div class="b3-label b3-label--inner fn__flex config-sync-headers" id="${id}">
+    <div class="fn__flex-center fn__size200">${label}</div>
+    <div class="fn__space"></div>
+    <div class="config-sync-headers__body fn__block">
+        <div class="config-sync-headers__rows" data-role="syncHeaderRows"></div>
+        <button class="b3-button b3-button--outline" data-action="addSyncHeader" type="button">
+            <svg><use xlink:href="#iconAdd"></use></svg>添加请求头（Add Header）
+        </button>
+    </div>
+</div>`;
+
+const genSyncHeaderRow = (header: Config.ISyncHeader = {name: "", value: ""}) => `<div class="config-sync-headers__row" data-role="syncHeaderRow">
+    <div class="config-sync-placeholder">
+        <input class="b3-text-field fn__block" data-name="name" spellcheck="false" placeholder="Name" value="${escapeAttr(header.name)}">
+        ${genPlaceholderButton()}
+    </div>
+    <div class="config-sync-placeholder">
+        <input class="b3-text-field fn__block" data-name="value" spellcheck="false" placeholder="Value" value="${escapeAttr(header.value)}">
+        ${genPlaceholderButton()}
+    </div>
+    <button class="block__icon block__icon--show" data-action="removeSyncHeader" type="button" aria-label="Remove header">
+        <svg><use xlink:href="#iconTrashcan"></use></svg>
+    </button>
 </div>`;
 
 const genProviderActionButtons = (dataType: SyncProviderConfigKey) => {
@@ -366,6 +446,29 @@ const bindProviderConfigEvent = (configElement: Element, root: Element) => {
         return;
     }
     syncProviderConfigBoundElements.add(configElement);
+    configElement.addEventListener("click", (event: Event) => {
+        const target = event.target as HTMLElement;
+        const actionElement = target.closest<HTMLElement>("[data-action]");
+        if (!actionElement) {
+            return;
+        }
+        if (actionElement.dataset.action === "addSyncHeader") {
+            const rowsElement = configElement.querySelector('[data-role="syncHeaderRows"]');
+            rowsElement?.insertAdjacentHTML("beforeend", genSyncHeaderRow());
+            return;
+        }
+        if (actionElement.dataset.action === "removeSyncHeader") {
+            actionElement.closest('[data-role="syncHeaderRow"]')?.remove();
+            saveSyncProviderConfigValues(configElement);
+            return;
+        }
+        if (actionElement.dataset.action === "insertSyncPlaceholder") {
+            const inputElement = actionElement.closest(".config-sync-placeholder")?.querySelector<HTMLInputElement>("input");
+            if (inputElement) {
+                insertSyncPlaceholder(inputElement, configElement);
+            }
+        }
+    });
     configElement.addEventListener("change", (event: Event) => {
         const target = event.target as HTMLElement;
         if (!target.matches(".b3-text-field, .b3-select")) {
@@ -409,6 +512,11 @@ const fillSyncProviderConfigValues = (configElement: Element) => {
             el.value = String(data[key]);
         }
     });
+    const headersElement = configElement.querySelector('[data-role="syncHeaderRows"]');
+    if (headersElement && "headers" in data) {
+        const headers = Array.isArray(data.headers) ? data.headers : [];
+        headersElement.innerHTML = headers.map((header) => genSyncHeaderRow(header)).join("");
+    }
 };
 
 const readProviderConfigFields = <T extends object>(configElement: Element, template: T): T => {
@@ -422,12 +530,59 @@ const readProviderConfigFields = <T extends object>(configElement: Element, temp
         if (typeof sample === "boolean") {
             result[key] = el.value === "true";
         } else if (typeof sample === "number") {
-            result[key] = parseInt(el.value, 10);
+            const numberValue = parseInt(resolveSyncPlaceholderValue(el.value), 10);
+            result[key] = Number.isNaN(numberValue) ? sample : numberValue;
         } else {
             result[key] = el.value;
         }
     });
+    if ("headers" in template) {
+        result.headers = Array.from(configElement.querySelectorAll('[data-role="syncHeaderRow"]')).map((row) => {
+            return {
+                name: row.querySelector<HTMLInputElement>('[data-name="name"]')?.value || "",
+                value: row.querySelector<HTMLInputElement>('[data-name="value"]')?.value || "",
+            };
+        }).filter((header) => header.name.trim() || header.value);
+    }
     return result as T;
+};
+
+const insertSyncPlaceholder = (inputElement: HTMLInputElement, configElement: Element) => {
+    const placeholders = getSyncPlaceholderOptions();
+    if (placeholders.length === 0) {
+        showMessage("请先在「密钥和变量」中添加密钥或变量");
+        return;
+    }
+    const value = placeholders.length === 1 ? placeholders[0].value : window.prompt("输入要插入的密钥或变量占位符", placeholders[0].value);
+    if (!value) {
+        return;
+    }
+    const start = inputElement.selectionStart ?? inputElement.value.length;
+    const end = inputElement.selectionEnd ?? inputElement.value.length;
+    inputElement.value = `${inputElement.value.slice(0, start)}${value}${inputElement.value.slice(end)}`;
+    inputElement.focus();
+    inputElement.setSelectionRange(start + value.length, start + value.length);
+    saveSyncProviderConfigValues(configElement);
+};
+
+const getSyncPlaceholderOptions = () => {
+    const secrets = window.siyuan.config.secrets?.items || [];
+    const variables = window.siyuan.config.variables?.items || [];
+    return [
+        ...secrets.map((item: SyncNamedItem) => ({label: `密钥 ${item.name}`, value: `{{secrets.${item.name}}}`})),
+        ...variables.map((item: SyncNamedItem) => ({label: `变量 ${item.name}`, value: `{{vars.${item.name}}}`})),
+    ].filter((item) => item.value !== "{{secrets.}}" && item.value !== "{{vars.}}");
+};
+
+const resolveSyncPlaceholderValue = (value: string) => {
+    let ret = value;
+    window.siyuan.config.secrets?.items?.forEach((item) => {
+        ret = ret.replaceAll(`{{secrets.${item.name}}}`, item.value);
+    });
+    window.siyuan.config.variables?.items?.forEach((item) => {
+        ret = ret.replaceAll(`{{vars.${item.name}}}`, item.value);
+    });
+    return ret;
 };
 
 const renderCloudSpace = (root: Element) => {

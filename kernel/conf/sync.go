@@ -44,24 +44,39 @@ func NewSync() *Sync {
 }
 
 type S3 struct {
-	Endpoint       string `json:"endpoint"`       // 服务端点
-	AccessKey      string `json:"accessKey"`      // Access Key
-	SecretKey      string `json:"secretKey"`      // Secret Key
-	Bucket         string `json:"bucket"`         // 存储空间
-	Region         string `json:"region"`         // 存储区域
-	PathStyle      bool   `json:"pathStyle"`      // 是否使用路径风格
-	SkipTlsVerify  bool   `json:"skipTlsVerify"`  // 是否跳过 TLS 验证
-	Timeout        int    `json:"timeout"`        // 超时时间，单位：秒
-	ConcurrentReqs int    `json:"concurrentReqs"` // 并发请求数
+	Endpoint       string        `json:"endpoint"`       // 服务端点
+	AccessKey      string        `json:"accessKey"`      // Access Key
+	SecretKey      string        `json:"secretKey"`      // Secret Key
+	Bucket         string        `json:"bucket"`         // 存储空间
+	Region         string        `json:"region"`         // 存储区域
+	PathStyle      bool          `json:"pathStyle"`      // 是否使用路径风格
+	SkipTlsVerify  bool          `json:"skipTlsVerify"`  // 是否跳过 TLS 验证
+	Timeout        int           `json:"timeout"`        // 超时时间，单位：秒
+	ConcurrentReqs int           `json:"concurrentReqs"` // 并发请求数
+	UserAgent      string        `json:"userAgent"`      // 自定义 User-Agent 头
+	Referer        string        `json:"referer"`        // 自定义 Referer 头
+	Headers        []*SyncHeader `json:"headers"`        // 自定义请求头
+	DNSRecordType  string        `json:"dnsRecordType"`  // 指定解析记录类型：A 或 CNAME
+	DNSRecordValue string        `json:"dnsRecordValue"` // 指定解析记录值
 }
 
 type WebDAV struct {
-	Endpoint       string `json:"endpoint"`       // 服务端点
-	Username       string `json:"username"`       // 用户名
-	Password       string `json:"password"`       // 密码
-	SkipTlsVerify  bool   `json:"skipTlsVerify"`  // 是否跳过 TLS 验证
-	Timeout        int    `json:"timeout"`        // 超时时间，单位：秒
-	ConcurrentReqs int    `json:"concurrentReqs"` // 并发请求数
+	Endpoint       string        `json:"endpoint"`       // 服务端点
+	Username       string        `json:"username"`       // 用户名
+	Password       string        `json:"password"`       // 密码
+	SkipTlsVerify  bool          `json:"skipTlsVerify"`  // 是否跳过 TLS 验证
+	Timeout        int           `json:"timeout"`        // 超时时间，单位：秒
+	ConcurrentReqs int           `json:"concurrentReqs"` // 并发请求数
+	UserAgent      string        `json:"userAgent"`      // 自定义 User-Agent 头
+	Referer        string        `json:"referer"`        // 自定义 Referer 头
+	Headers        []*SyncHeader `json:"headers"`        // 自定义请求头
+	DNSRecordType  string        `json:"dnsRecordType"`  // 指定解析记录类型：A 或 CNAME
+	DNSRecordValue string        `json:"dnsRecordValue"` // 指定解析记录值
+}
+
+type SyncHeader struct {
+	Name  string `json:"name"`  // 请求头名称
+	Value string `json:"value"` // 请求头值
 }
 
 type Local struct {

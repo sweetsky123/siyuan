@@ -1612,6 +1612,11 @@ declare namespace Config {
         local: ISyncLocal;
     }
 
+    export interface ISyncHeader {
+        name: string;
+        value: string;
+    }
+
     /**
      * S3 compatible object storage related configuration
      */
@@ -1652,6 +1657,26 @@ declare namespace Config {
          * Concurrent requests.
          */
         concurrentReqs: number;
+        /**
+         * Custom User-Agent request header.
+         */
+        userAgent: string;
+        /**
+         * Custom Referer request header.
+         */
+        referer: string;
+        /**
+         * Custom request headers.
+         */
+        headers: ISyncHeader[];
+        /**
+         * Custom DNS record type.
+         */
+        dnsRecordType: "" | "A" | "CNAME";
+        /**
+         * Custom DNS record value.
+         */
+        dnsRecordValue: string;
     }
 
     /**
@@ -1678,6 +1703,26 @@ declare namespace Config {
          * Concurrent requests.
          */
         concurrentReqs: number;
+        /**
+         * Custom User-Agent request header.
+         */
+        userAgent: string;
+        /**
+         * Custom Referer request header.
+         */
+        referer: string;
+        /**
+         * Custom request headers.
+         */
+        headers: ISyncHeader[];
+        /**
+         * Custom DNS record type.
+         */
+        dnsRecordType: "" | "A" | "CNAME";
+        /**
+         * Custom DNS record value.
+         */
+        dnsRecordValue: string;
         /**
          * Username
          */
