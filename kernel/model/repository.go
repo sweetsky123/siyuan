@@ -47,6 +47,8 @@ import (
 	"github.com/88250/lute/html"
 	"github.com/88250/lute/parse"
 	"github.com/88250/lute/render"
+	awsv2 "github.com/aws/aws-sdk-go-v2/aws"
+	awsSignerV4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/emirpasic/gods/sets/hashset"
 	"github.com/siyuan-note/dataparser"
 	"github.com/siyuan-note/dejavu"
@@ -68,8 +70,17 @@ import (
 )
 
 type syncHeaderTransport struct {
-	base    http.RoundTripper
-	headers http.Header
+	base       http.RoundTripper
+	headers    http.Header
+	s3SignHost *syncS3SignHost
+}
+
+type syncS3SignHost struct {
+	host      string
+	accessKey string
+	secretKey string
+	region    string
+	signer    *awsSignerV4.Signer
 }
 
 func (transport *syncHeaderTransport) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -84,7 +95,75 @@ func (transport *syncHeaderTransport) RoundTrip(req *http.Request) (*http.Respon
 			clone.Header.Add(name, value)
 		}
 	}
+	if nil != transport.s3SignHost {
+		if err := transport.s3SignHost.sign(clone); nil != err {
+			return nil, err
+		}
+	}
 	return base.RoundTrip(clone)
+}
+
+func newSyncS3SignHost(signHost, accessKey, secretKey, region string) *syncS3SignHost {
+	signHost = normalizeSyncS3SignHost(resolveSyncSecretsVars(signHost))
+	if "" == signHost {
+		return nil
+	}
+	return &syncS3SignHost{
+		host:      signHost,
+		accessKey: resolveSyncSecretsVars(accessKey),
+		secretKey: resolveSyncSecretsVars(secretKey),
+		region:    resolveSyncSecretsVars(region),
+		signer:    awsSignerV4.NewSigner(),
+	}
+}
+
+func normalizeSyncS3SignHost(signHost string) string {
+	signHost = strings.TrimSpace(signHost)
+	if "" == signHost {
+		return ""
+	}
+	if !strings.Contains(signHost, "://") {
+		signHost = "https://" + signHost
+	}
+	parsed, err := url.Parse(signHost)
+	if nil != err || "" == parsed.Host {
+		return ""
+	}
+	return strings.TrimSuffix(parsed.Host, ".")
+}
+
+func (signHost *syncS3SignHost) sign(req *http.Request) error {
+	if "" == signHost.accessKey || "" == signHost.secretKey || "" == signHost.region {
+		return nil
+	}
+	ignoredHeaders := map[string][]string{}
+	for _, name := range []string{"Accept-Encoding", "Amz-Sdk-Invocation-Id", "Amz-Sdk-Request"} {
+		if values := req.Header.Values(name); 0 < len(values) {
+			ignoredHeaders[name] = values
+			req.Header.Del(name)
+		}
+	}
+	payloadHash := req.Header.Get("X-Amz-Content-Sha256")
+	if "" == payloadHash {
+		payloadHash = fmt.Sprintf("%x", sha256.Sum256(nil))
+	}
+	originalHost := req.Host
+	req.Host = signHost.host
+	req.Header.Del("Authorization")
+	req.Header.Del("X-Amz-Date")
+	err := signHost.signer.SignHTTP(req.Context(), awsv2.Credentials{
+		AccessKeyID:     signHost.accessKey,
+		SecretAccessKey: signHost.secretKey,
+	}, req, payloadHash, "s3", signHost.region, time.Now(), func(options *awsSignerV4.SignerOptions) {
+		options.DisableURIPathEscaping = true
+	})
+	req.Host = originalHost
+	for name, values := range ignoredHeaders {
+		for _, value := range values {
+			req.Header.Add(name, value)
+		}
+	}
+	return err
 }
 
 func newSyncHeaders(headers []*conf.SyncHeader, userAgent, referer string) http.Header {
@@ -2516,7 +2595,11 @@ func newRepository() (ret *dejavu.Repo, err error) {
 		cloudRepo = cloud.NewSiYuan(&cloud.BaseCloud{Conf: cloudConf})
 	case conf.ProviderS3:
 		transport := newSyncTransport(cloudConf.S3.Endpoint, cloudConf.S3.SkipTlsVerify, Conf.Sync.S3.DNSRecordType, Conf.Sync.S3.DNSRecordValue)
-		s3HTTPClient := &http.Client{Transport: &syncHeaderTransport{base: transport, headers: newSyncHeaders(Conf.Sync.S3.Headers, Conf.Sync.S3.UserAgent, Conf.Sync.S3.Referer)}}
+		s3HTTPClient := &http.Client{Transport: &syncHeaderTransport{
+			base:       transport,
+			headers:    newSyncHeaders(Conf.Sync.S3.Headers, Conf.Sync.S3.UserAgent, Conf.Sync.S3.Referer),
+			s3SignHost: newSyncS3SignHost(Conf.Sync.S3.SignHost, Conf.Sync.S3.AccessKey, Conf.Sync.S3.SecretKey, Conf.Sync.S3.Region),
+		}}
 		s3HTTPClient.Timeout = time.Duration(cloudConf.S3.Timeout) * time.Second
 		cloudRepo = cloud.NewS3(&cloud.BaseCloud{Conf: cloudConf}, s3HTTPClient)
 	case conf.ProviderWebDAV:

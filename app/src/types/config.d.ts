@@ -1658,6 +1658,10 @@ declare namespace Config {
          */
         concurrentReqs: number;
         /**
+         * Custom host used for S3 Signature Version 4 calculation.
+         */
+        signHost: string;
+        /**
          * Custom User-Agent request header.
          */
         userAgent: string;

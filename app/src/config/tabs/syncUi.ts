@@ -148,6 +148,7 @@ const SYNC_PROVIDER_DEFS: Record<Config.ISync["provider"], SyncProviderDef> = {
                 {value: "true", label: "跳过验证（Skip）"},
             ]},
             {type: "input", label: genBilingualLabel("并发请求数", "Concurrent Reqs"), id: "concurrentReqs", attrs: 'inputmode="numeric" data-number="true"'},
+            {type: "input", label: genBilingualLabel("S3 签名 Host", "可选"), id: "signHost"},
             {type: "input", label: genBilingualLabel("User-Agent 请求头", "可选"), id: "userAgent"},
             {type: "input", label: genBilingualLabel("Referer 请求头", "可选"), id: "referer"},
             {type: "headers", label: genBilingualLabel("自定义请求头", "Headers"), id: "headers"},

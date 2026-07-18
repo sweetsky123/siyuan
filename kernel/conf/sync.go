@@ -53,6 +53,7 @@ type S3 struct {
 	SkipTlsVerify  bool          `json:"skipTlsVerify"`  // 是否跳过 TLS 验证
 	Timeout        int           `json:"timeout"`        // 超时时间，单位：秒
 	ConcurrentReqs int           `json:"concurrentReqs"` // 并发请求数
+	SignHost       string        `json:"signHost"`       // 自定义 S3 签名 Host
 	UserAgent      string        `json:"userAgent"`      // 自定义 User-Agent 头
 	Referer        string        `json:"referer"`        // 自定义 Referer 头
 	Headers        []*SyncHeader `json:"headers"`        // 自定义请求头
