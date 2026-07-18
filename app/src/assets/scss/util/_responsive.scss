@@ -43,8 +43,12 @@
       flex-wrap: wrap;
       align-items: flex-start;
 
+      // 窄屏标签与输入叠排时，中英标签收成一行，如 服务端点(Endpoint)
       .config-provider-label {
-        display: block;
+        display: inline-flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        align-items: center;
       }
 
       .config-sync-placeholder {

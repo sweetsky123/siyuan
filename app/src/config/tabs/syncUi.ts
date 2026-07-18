@@ -1,5 +1,4 @@
 import {showMessage} from "../../dialog/message";
-import {hideTooltip} from "../../dialog/tooltip";
 import {fetchPost, fetchSyncPost} from "../../util/fetch";
 import {confirmDialog} from "../../dialog/confirmDialog";
 import {isInIOS, saveExportFile} from "../../protyle/util/compatibility";
@@ -60,7 +59,8 @@ type SyncProviderFieldDef =
     | {type: "select"; label: string; id: string; options: {value: string; label: string}[]}
     | {type: "headers"; label: string; id: "headers"};
 
-const genBilingualLabel = (primary: string, secondary: string) => `<span class="config-provider-label"><span>${primary}</span><span>（${secondary}）</span></span>`;
+// 宽屏（标签与输入同行）时中英分两行；窄屏叠排时由 CSS 收成一行，如 服务端点(Endpoint)
+const genBilingualLabel = (primary: string, secondary: string) => `<span class="config-provider-label"><span>${primary}</span><span>(${secondary})</span></span>`;
 
 // 指定连接端口说明：仅改拨号端口，适用于端口转发后端口不一致
 const SYNC_CONNECT_PORT_TIP = "仅覆盖实际 TCP 连接端口，不影响 Endpoint、HTTP Host 与 S3 签名。适用于端口转发后连接端口与 Endpoint 端口不一致的场景；留空表示沿用 Endpoint 端口。";
@@ -142,14 +142,14 @@ const SYNC_PROVIDER_DEFS: Record<Config.ISync["provider"], SyncProviderDef> = {
             {type: "password", label: genBilingualLabel("秘密访问密钥", "Secret Key"), id: "secretKey"},
             {type: "input", label: genBilingualLabel("存储桶", "Bucket"), id: "bucket"},
             {type: "input", label: genBilingualLabel("区域 ID", "Region ID"), id: "region"},
-            {type: "input", label: genBilingualLabel("超时时间（秒）", "Timeout"), id: "timeout", attrs: 'inputmode="numeric" data-number="true"'},
+            {type: "input", label: genBilingualLabel("超时时间(秒)", "Timeout"), id: "timeout", attrs: 'inputmode="numeric" data-number="true"'},
             {type: "select", label: genBilingualLabel("寻址方式", "Addressing"), id: "pathStyle", options: [
-                {value: "true", label: "路径样式（Path-style）"},
-                {value: "false", label: "虚拟托管样式（Virtual-hosted-style）"},
+                {value: "true", label: "路径样式(Path-style)"},
+                {value: "false", label: "虚拟托管样式(Virtual-hosted-style)"},
             ]},
             {type: "select", label: genBilingualLabel("TLS 验证", "TLS Verify"), id: "skipTlsVerify", options: [
-                {value: "false", label: "启用验证（Verify）"},
-                {value: "true", label: "跳过验证（Skip）"},
+                {value: "false", label: "启用验证(Verify)"},
+                {value: "true", label: "跳过验证(Skip)"},
             ]},
             {type: "input", label: genBilingualLabel("并发请求数", "Concurrent Reqs"), id: "concurrentReqs", attrs: 'inputmode="numeric" data-number="true"'},
             {type: "input", label: genBilingualLabel("S3 签名 Host", "可选"), id: "signHost"},
@@ -180,10 +180,10 @@ const SYNC_PROVIDER_DEFS: Record<Config.ISync["provider"], SyncProviderDef> = {
             {type: "input", label: genBilingualLabel("服务端点", "Endpoint"), id: "endpoint"},
             {type: "input", label: genBilingualLabel("用户名", "Username"), id: "username"},
             {type: "password", label: genBilingualLabel("密码", "Password"), id: "password"},
-            {type: "input", label: genBilingualLabel("超时时间（秒）", "Timeout"), id: "timeout", attrs: 'inputmode="numeric" data-number="true"'},
+            {type: "input", label: genBilingualLabel("超时时间(秒)", "Timeout"), id: "timeout", attrs: 'inputmode="numeric" data-number="true"'},
             {type: "select", label: genBilingualLabel("TLS 验证", "TLS Verify"), id: "skipTlsVerify", options: [
-                {value: "false", label: "启用验证（Verify）"},
-                {value: "true", label: "跳过验证（Skip）"},
+                {value: "false", label: "启用验证(Verify)"},
+                {value: "true", label: "跳过验证(Skip)"},
             ]},
             {type: "input", label: genBilingualLabel("并发请求数", "Concurrent Reqs"), id: "concurrentReqs", attrs: 'inputmode="numeric" data-number="true"'},
             {type: "input", label: genBilingualLabel("User-Agent 请求头", "可选"), id: "userAgent"},
@@ -216,7 +216,7 @@ const SYNC_PROVIDER_DEFS: Record<Config.ISync["provider"], SyncProviderDef> = {
 </div>`,
         fields: [
             {type: "input", label: genBilingualLabel("服务端点", "Endpoint"), id: "endpoint"},
-            {type: "input", label: genBilingualLabel("超时时间（秒）", "Timeout"), id: "timeout", attrs: 'inputmode="numeric" data-number="true"'},
+            {type: "input", label: genBilingualLabel("超时时间(秒)", "Timeout"), id: "timeout", attrs: 'inputmode="numeric" data-number="true"'},
             {type: "input", label: genBilingualLabel("并发请求数", "Concurrent Reqs"), id: "concurrentReqs", attrs: 'inputmode="numeric" data-number="true"'},
         ],
     },
@@ -331,81 +331,13 @@ const genProviderField = (field: SyncProviderFieldDef): string => {
 
 const escapeAttr = (value: string) => value.replaceAll("&", "&amp;").replaceAll("\"", "&quot;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 
-// 字段说明：桌面悬停显示；手机/桌面点击显示，点击其它区域关闭
-// 不用 b3-tooltips 纯 CSS：小屏会禁用 ::after，且无法实现点击固定
-let fieldTipSticky = false;
-let fieldTipTarget: Element | null = null;
-let fieldTipDocBound = false;
-
-const hideSyncFieldTip = () => {
-    fieldTipSticky = false;
-    fieldTipTarget = null;
-    hideTooltip();
-};
-
-const showSyncFieldTip = (message: string, target: Element) => {
-    if (!message) {
-        return;
-    }
-    const messageElement = document.getElementById("tooltip");
-    if (!messageElement) {
-        return;
-    }
-    fieldTipTarget = target;
-    // 去掉 fn__none 后立即显示（移动端不走 showTooltip，因其直接 return）
-    messageElement.className = "tooltip";
-    messageElement.innerHTML = window.DOMPurify.sanitize(message);
-    messageElement.removeAttribute("style");
-    // 立即出现，避免默认 300ms 动画延迟
-    messageElement.style.animationDelay = "0ms";
-    const targetRect = target.getBoundingClientRect();
-    // 先给一个初始位置，再按实测宽高校正，避免从 display:none 恢复时宽高为 0
-    messageElement.style.top = "0px";
-    messageElement.style.left = "0px";
-    let left = Math.max(0, targetRect.left - (messageElement.clientWidth - targetRect.width) / 2);
-    let top = targetRect.top - messageElement.clientHeight - 8;
-    if (top < 0) {
-        top = targetRect.bottom + 8;
-        if (top + messageElement.clientHeight > window.innerHeight) {
-            messageElement.style.maxHeight = (window.innerHeight - top) + "px";
-        }
-    } else {
-        messageElement.style.maxHeight = (targetRect.top - 8) + "px";
-    }
-    if (left + messageElement.clientWidth > window.innerWidth) {
-        left = Math.max(0, window.innerWidth - messageElement.clientWidth);
-    }
-    messageElement.style.top = top + "px";
-    messageElement.style.left = left + "px";
-};
-
-const ensureFieldTipDocListener = () => {
-    if (fieldTipDocBound) {
-        return;
-    }
-    fieldTipDocBound = true;
-    // 捕获阶段：点击图标外任意区域关闭（含手机）
-    document.addEventListener("pointerdown", (event: Event) => {
-        if (!fieldTipTarget) {
-            return;
-        }
-        const eventTarget = event.target as Node | null;
-        if (eventTarget && fieldTipTarget.contains(eventTarget)) {
-            return;
-        }
-        if ((event.target as HTMLElement | null)?.closest?.("#tooltip")) {
-            return;
-        }
-        hideSyncFieldTip();
-    }, true);
-};
-
+// 字段说明图标：点击后以 snackbar（#message）展示，与其它系统提示一致
 const genFieldTipIcon = (tip?: string) => {
     if (!tip) {
         return "";
     }
-    // flex-shrink:0 保证图标始终贴在标签右侧，不因文案换行掉到下方
-    return `<span class="fn__space"></span><span class="fn__flex-center" data-field-tip="${escapeAttr(tip)}" role="button" tabindex="0" style="flex-shrink:0;cursor:pointer" aria-label="${escapeAttr(tip)}"><svg style="height: 14px; width: 14px;"><use xlink:href="#iconInfo"></use></svg></span>`;
+    // 略小于正文、略大于 14px，flex-shrink:0 保证贴在标签右侧
+    return `<span class="fn__space"></span><span class="fn__flex-center" data-field-tip="${escapeAttr(tip)}" role="button" tabindex="0" style="flex-shrink:0;cursor:pointer" aria-label="${escapeAttr(tip)}"><svg style="height: 15px; width: 15px;"><use xlink:href="#iconInfo"></use></svg></span>`;
 };
 
 const genPlaceholderButton = () => `<button class="block__icon block__icon--show" data-action="insertSyncPlaceholder" type="button" aria-label="Insert secret or variable">
@@ -445,7 +377,7 @@ const genProviderHeaders = (label: string, id: "headers") => `<div class="b3-lab
     <div class="config-sync-headers__body fn__block">
         <div class="config-sync-headers__rows" data-role="syncHeaderRows"></div>
         <button class="b3-button b3-button--outline" data-action="addSyncHeader" type="button">
-            <svg><use xlink:href="#iconAdd"></use></svg>添加请求头（Add Header）
+            <svg><use xlink:href="#iconAdd"></use></svg>添加请求头(Add Header)
         </button>
     </div>
 </div>`;
@@ -532,49 +464,17 @@ const bindProviderConfigEvent = (configElement: Element, root: Element) => {
         return;
     }
     syncProviderConfigBoundElements.add(configElement);
-    ensureFieldTipDocListener();
-    // 悬停显示字段说明；移开且非点击固定时关闭
-    configElement.addEventListener("mouseover", (event: Event) => {
-        const tipElement = (event.target as HTMLElement).closest<HTMLElement>("[data-field-tip]");
-        if (!tipElement || !configElement.contains(tipElement)) {
-            return;
-        }
-        if (fieldTipSticky && fieldTipTarget === tipElement) {
-            return;
-        }
-        fieldTipSticky = false;
-        showSyncFieldTip(tipElement.getAttribute("data-field-tip") || "", tipElement);
-    });
-    configElement.addEventListener("mouseout", (event: MouseEvent) => {
-        if (fieldTipSticky) {
-            return;
-        }
-        const tipElement = (event.target as HTMLElement).closest<HTMLElement>("[data-field-tip]");
-        if (!tipElement || !configElement.contains(tipElement)) {
-            return;
-        }
-        const related = event.relatedTarget as Node | null;
-        if (related && tipElement.contains(related)) {
-            return;
-        }
-        if (fieldTipTarget === tipElement) {
-            hideSyncFieldTip();
-        }
-    });
     configElement.addEventListener("click", (event: Event) => {
         const target = event.target as HTMLElement;
-        // 点击感叹号：固定显示说明；再点同一图标关闭
+        // 点击字段说明图标：以 snackbar 展示
         const tipElement = target.closest<HTMLElement>("[data-field-tip]");
         if (tipElement && configElement.contains(tipElement)) {
             event.preventDefault();
             event.stopPropagation();
             const tip = tipElement.getAttribute("data-field-tip") || "";
-            if (fieldTipSticky && fieldTipTarget === tipElement) {
-                hideSyncFieldTip();
-                return;
+            if (tip) {
+                showMessage(tip);
             }
-            fieldTipSticky = true;
-            showSyncFieldTip(tip, tipElement);
             return;
         }
         const actionElement = target.closest<HTMLElement>("[data-action]");
