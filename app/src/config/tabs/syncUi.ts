@@ -54,12 +54,15 @@ export const getSyncProviderConfigKeywords = (): string[] => buildProviderConfig
 type SyncProviderConfigKey = Extract<keyof Config.ISync, "s3" | "webdav" | "local">;
 
 type SyncProviderFieldDef =
-    | {type: "input"; label: string; id: string; attrs?: string}
+    | {type: "input"; label: string; id: string; attrs?: string; tip?: string}
     | {type: "password"; label: string; id: string}
     | {type: "select"; label: string; id: string; options: {value: string; label: string}[]}
     | {type: "headers"; label: string; id: "headers"};
 
 const genBilingualLabel = (primary: string, secondary: string) => `<span class="config-provider-label"><span>${primary}</span><span>（${secondary}）</span></span>`;
+
+// 指定连接端口说明：仅改拨号端口，适用于端口转发后端口不一致
+const SYNC_CONNECT_PORT_TIP = "仅覆盖实际 TCP 连接端口，不影响 Endpoint、HTTP Host 与 S3 签名。适用于端口转发后连接端口与 Endpoint 端口不一致的场景；留空表示沿用 Endpoint 端口。";
 
 type SyncProviderIntroDef = {
     genIntro: () => string;
@@ -158,7 +161,7 @@ const SYNC_PROVIDER_DEFS: Record<Config.ISync["provider"], SyncProviderDef> = {
                 {value: "CNAME", label: "CNAME"},
             ]},
             {type: "input", label: genBilingualLabel("DNS 解析记录值", "IP / CNAME"), id: "dnsRecordValue"},
-            {type: "input", label: genBilingualLabel("指定连接端口", "Connect Port"), id: "connectPort", attrs: 'inputmode="numeric" data-number="true" placeholder="0"'},
+            {type: "input", label: genBilingualLabel("指定连接端口", "Connect Port"), id: "connectPort", attrs: 'inputmode="numeric" data-number="true" placeholder="0"', tip: SYNC_CONNECT_PORT_TIP},
         ],
     },
     3: {
@@ -191,7 +194,7 @@ const SYNC_PROVIDER_DEFS: Record<Config.ISync["provider"], SyncProviderDef> = {
                 {value: "CNAME", label: "CNAME"},
             ]},
             {type: "input", label: genBilingualLabel("DNS 解析记录值", "IP / CNAME"), id: "dnsRecordValue"},
-            {type: "input", label: genBilingualLabel("指定连接端口", "Connect Port"), id: "connectPort", attrs: 'inputmode="numeric" data-number="true" placeholder="0"'},
+            {type: "input", label: genBilingualLabel("指定连接端口", "Connect Port"), id: "connectPort", attrs: 'inputmode="numeric" data-number="true" placeholder="0"', tip: SYNC_CONNECT_PORT_TIP},
         ],
     },
     4: {
@@ -314,7 +317,7 @@ const renderProviderConfig = (root: Element) => {
 const genProviderField = (field: SyncProviderFieldDef): string => {
     switch (field.type) {
         case "input":
-            return genProviderFlexInput(field.label, field.id, field.attrs);
+            return genProviderFlexInput(field.label, field.id, field.attrs, field.tip);
         case "password":
             return genProviderFlexPassword(field.label, field.id);
         case "select":
@@ -327,12 +330,20 @@ const genProviderField = (field: SyncProviderFieldDef): string => {
 
 const escapeAttr = (value: string) => value.replaceAll("&", "&amp;").replaceAll("\"", "&quot;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 
+const genFieldTipIcon = (tip?: string) => {
+    if (!tip) {
+        return "";
+    }
+    // 使用项目通用的 info 图标 + tooltip；悬停/聚焦即可查看说明
+    return `<span class="fn__space"></span><span class="b3-tooltips b3-tooltips__n fn__flex-center" aria-label="${escapeAttr(tip)}"><svg style="height: 14px; width: 14px;"><use xlink:href="#iconInfo"></use></svg></span>`;
+};
+
 const genPlaceholderButton = () => `<button class="block__icon block__icon--show" data-action="insertSyncPlaceholder" type="button" aria-label="Insert secret or variable">
     <svg><use xlink:href="#iconKeymap"></use></svg>
 </button>`;
 
-const genProviderFlexInput = (label: string, id: string, attrs = "") => `<div class="b3-label b3-label--inner fn__flex">
-    <div class="fn__flex-center fn__size200">${label}</div>
+const genProviderFlexInput = (label: string, id: string, attrs = "", tip = "") => `<div class="b3-label b3-label--inner fn__flex">
+    <div class="fn__flex-center fn__size200">${label}${genFieldTipIcon(tip)}</div>
     <div class="fn__space"></div>
     <div class="config-sync-placeholder fn__block">
         <input id="${id}" class="b3-text-field fn__block"${attrs ? ` ${attrs}` : ""}>
