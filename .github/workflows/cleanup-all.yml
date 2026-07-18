@@ -1,4 +1,4 @@
-name: 清理全部 Artifacts
+name: 手动清理全部 Artifacts
 
 on:
   workflow_dispatch:

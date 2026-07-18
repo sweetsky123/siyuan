@@ -1,4 +1,4 @@
-name: 清理 Artifacts
+name: 自动清理 Artifacts
 
 on:
   schedule:
