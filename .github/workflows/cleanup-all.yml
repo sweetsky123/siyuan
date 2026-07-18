@@ -12,7 +12,7 @@ env:
 
 jobs:
   cleanup:
-    name: 清理全部 Artifacts
+    name: 手动清理全部 Artifacts
     runs-on: ubuntu-latest
     steps:
       - name: 删除全部 Artifacts
