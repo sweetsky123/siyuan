@@ -158,6 +158,7 @@ const SYNC_PROVIDER_DEFS: Record<Config.ISync["provider"], SyncProviderDef> = {
                 {value: "CNAME", label: "CNAME"},
             ]},
             {type: "input", label: genBilingualLabel("DNS 解析记录值", "IP / CNAME"), id: "dnsRecordValue"},
+            {type: "input", label: genBilingualLabel("指定连接端口", "Connect Port"), id: "connectPort", attrs: 'inputmode="numeric" data-number="true" placeholder="0"'},
         ],
     },
     3: {
@@ -190,6 +191,7 @@ const SYNC_PROVIDER_DEFS: Record<Config.ISync["provider"], SyncProviderDef> = {
                 {value: "CNAME", label: "CNAME"},
             ]},
             {type: "input", label: genBilingualLabel("DNS 解析记录值", "IP / CNAME"), id: "dnsRecordValue"},
+            {type: "input", label: genBilingualLabel("指定连接端口", "Connect Port"), id: "connectPort", attrs: 'inputmode="numeric" data-number="true" placeholder="0"'},
         ],
     },
     4: {
@@ -267,6 +269,7 @@ const buildProviderConfigKeywords = (): string[] => {
         "Headers",
         "DNS Record Type",
         "DNS Record Value",
+        "Connect Port",
         "服务端点",
         "访问密钥",
         "秘密访问密钥",
@@ -280,6 +283,7 @@ const buildProviderConfigKeywords = (): string[] => {
         "自定义请求头",
         "DNS 解析记录类型",
         "DNS 解析记录值",
+        "指定连接端口",
         "用户名",
         "密码",
     ];
@@ -475,8 +479,27 @@ const bindProviderConfigEvent = (configElement: Element, root: Element) => {
         if (!target.matches(".b3-text-field, .b3-select")) {
             return;
         }
+        if (target.id === "dnsRecordType") {
+            // 未选择 DNS 类型时禁用解析值输入；后端在类型或值为空时也会忽略指定解析
+            updateDnsRecordValueDisabled(configElement);
+        }
         saveSyncProviderConfigValues(configElement);
     });
+};
+
+// 未选择 DNS 解析记录类型时，禁用 DNS 解析记录值输入框
+const updateDnsRecordValueDisabled = (configElement: Element) => {
+    const typeElement = configElement.querySelector("#dnsRecordType") as HTMLSelectElement | null;
+    const valueElement = configElement.querySelector("#dnsRecordValue") as HTMLInputElement | null;
+    if (!typeElement || !valueElement) {
+        return;
+    }
+    const disabled = !typeElement.value;
+    valueElement.disabled = disabled;
+    const placeholderBtn = valueElement.closest(".config-sync-placeholder")?.querySelector<HTMLButtonElement>('[data-action="insertSyncPlaceholder"]');
+    if (placeholderBtn) {
+        placeholderBtn.disabled = disabled;
+    }
 };
 
 const saveSyncProviderConfigValues = (configElement: Element) => {
@@ -506,18 +529,30 @@ const fillSyncProviderConfigValues = (configElement: Element) => {
     if (!isThirdPartySyncProviderDef(def)) {
         return;
     }
-    const data = def.getConfig();
-    (Object.keys(data) as (keyof typeof data & string)[]).forEach((key) => {
+    const data = def.getConfig() as Record<string, unknown>;
+    (Object.keys(data) as string[]).forEach((key) => {
         const el = configElement.querySelector(`#${key}`) as HTMLInputElement | HTMLSelectElement | null;
         if (el) {
-            el.value = String(data[key]);
+            // connectPort 为 0 / 缺省时留空展示，表示不覆盖 Endpoint 端口
+            if (key === "connectPort") {
+                const port = Number(data.connectPort);
+                el.value = port > 0 ? String(port) : "";
+            } else {
+                el.value = String(data[key] ?? "");
+            }
         }
     });
+    // 旧配置对象可能还没有 connectPort 字段
+    const connectPortEl = configElement.querySelector("#connectPort") as HTMLInputElement | null;
+    if (connectPortEl && !("connectPort" in data)) {
+        connectPortEl.value = "";
+    }
     const headersElement = configElement.querySelector('[data-role="syncHeaderRows"]');
     if (headersElement && "headers" in data) {
         const headers = Array.isArray(data.headers) ? data.headers : [];
-        headersElement.innerHTML = headers.map((header) => genSyncHeaderRow(header)).join("");
+        headersElement.innerHTML = headers.map((header) => genSyncHeaderRow(header as Config.ISyncHeader)).join("");
     }
+    updateDnsRecordValueDisabled(configElement);
 };
 
 const readProviderConfigFields = <T extends object>(configElement: Element, template: T): T => {
@@ -531,12 +566,36 @@ const readProviderConfigFields = <T extends object>(configElement: Element, temp
         if (typeof sample === "boolean") {
             result[key] = el.value === "true";
         } else if (typeof sample === "number") {
-            const numberValue = parseInt(resolveSyncPlaceholderValue(el.value), 10);
+            const raw = resolveSyncPlaceholderValue(el.value).trim();
+            // connectPort 留空表示不覆盖，固定写回 0
+            if (key === "connectPort") {
+                if (!raw) {
+                    result[key] = 0;
+                    return;
+                }
+                const port = parseInt(raw, 10);
+                result[key] = Number.isNaN(port) || port < 1 || port > 65535 ? 0 : port;
+                return;
+            }
+            const numberValue = parseInt(raw, 10);
             result[key] = Number.isNaN(numberValue) ? sample : numberValue;
         } else {
             result[key] = el.value;
         }
     });
+    // 兼容旧配置对象尚无 connectPort 字段时，仍从表单读取指定连接端口
+    if (!("connectPort" in result)) {
+        const connectPortEl = configElement.querySelector("#connectPort") as HTMLInputElement | null;
+        if (connectPortEl) {
+            const raw = resolveSyncPlaceholderValue(connectPortEl.value).trim();
+            if (!raw) {
+                result.connectPort = 0;
+            } else {
+                const port = parseInt(raw, 10);
+                result.connectPort = Number.isNaN(port) || port < 1 || port > 65535 ? 0 : port;
+            }
+        }
+    }
     if ("headers" in template) {
         result.headers = Array.from(configElement.querySelectorAll('[data-role="syncHeaderRow"]')).map((row) => {
             return {

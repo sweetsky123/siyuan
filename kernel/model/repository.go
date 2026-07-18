@@ -35,6 +35,7 @@ import (
 	"path"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -195,11 +196,16 @@ func resolveSyncSecretsVars(in string) string {
 	return conf.ResolveSecretsVars(Conf.Secrets, Conf.Variables, in)
 }
 
-func newSyncTransport(endpoint string, skipTlsVerify bool, dnsRecordType, dnsRecordValue string) *http.Transport {
+// newSyncTransport 构建同步用 HTTP 传输层。
+// dnsRecordType/dnsRecordValue 仅在两者均有效时覆盖拨号主机名；connectPort 在 1–65535 时仅覆盖拨号端口。
+// 二者互不影响，且都不会改写请求 URL、HTTP Host 或 S3 签名 Host。
+func newSyncTransport(endpoint string, skipTlsVerify bool, dnsRecordType, dnsRecordValue string, connectPort int) *http.Transport {
 	transport := httpclient.NewTransport(skipTlsVerify)
 	dnsRecordType = strings.ToUpper(strings.TrimSpace(resolveSyncSecretsVars(dnsRecordType)))
 	dnsRecordValue = strings.TrimSpace(resolveSyncSecretsVars(dnsRecordValue))
-	if "" == dnsRecordType || "" == dnsRecordValue {
+	useDNS := ("" != dnsRecordType && "" != dnsRecordValue) && ("A" == dnsRecordType || "CNAME" == dnsRecordType)
+	useConnectPort := 0 < connectPort && 65535 >= connectPort
+	if !useDNS && !useConnectPort {
 		return transport
 	}
 
@@ -213,13 +219,13 @@ func newSyncTransport(endpoint string, skipTlsVerify bool, dnsRecordType, dnsRec
 		if nil != err || !strings.EqualFold(host, endpointHost) {
 			return dialer.DialContext(ctx, network, addr)
 		}
-
-		switch dnsRecordType {
-		case "A", "CNAME":
-			return dialer.DialContext(ctx, network, net.JoinHostPort(dnsRecordValue, port))
-		default:
-			return dialer.DialContext(ctx, network, addr)
+		if useDNS {
+			host = dnsRecordValue
 		}
+		if useConnectPort {
+			port = strconv.Itoa(connectPort)
+		}
+		return dialer.DialContext(ctx, network, net.JoinHostPort(host, port))
 	}
 	return transport
 }
@@ -2594,7 +2600,8 @@ func newRepository() (ret *dejavu.Repo, err error) {
 	case conf.ProviderSiYuan:
 		cloudRepo = cloud.NewSiYuan(&cloud.BaseCloud{Conf: cloudConf})
 	case conf.ProviderS3:
-		transport := newSyncTransport(cloudConf.S3.Endpoint, cloudConf.S3.SkipTlsVerify, Conf.Sync.S3.DNSRecordType, Conf.Sync.S3.DNSRecordValue)
+		// ConnectPort 只改拨号端口，不进入 dejavu/S3 配置，避免影响签名 Host
+		transport := newSyncTransport(cloudConf.S3.Endpoint, cloudConf.S3.SkipTlsVerify, Conf.Sync.S3.DNSRecordType, Conf.Sync.S3.DNSRecordValue, Conf.Sync.S3.ConnectPort)
 		s3HTTPClient := &http.Client{Transport: &syncHeaderTransport{
 			base:       transport,
 			headers:    newSyncHeaders(Conf.Sync.S3.Headers, Conf.Sync.S3.UserAgent, Conf.Sync.S3.Referer),
@@ -2611,7 +2618,8 @@ func newRepository() (ret *dejavu.Repo, err error) {
 			webdavClient.SetHeader(name, strings.Join(values, ", "))
 		}
 		webdavClient.SetTimeout(time.Duration(cloudConf.WebDAV.Timeout) * time.Second)
-		webdavClient.SetTransport(newSyncTransport(cloudConf.WebDAV.Endpoint, cloudConf.WebDAV.SkipTlsVerify, Conf.Sync.WebDAV.DNSRecordType, Conf.Sync.WebDAV.DNSRecordValue))
+		// ConnectPort 只改拨号端口，不进入 WebDAV Endpoint，避免影响 HTTP Host
+		webdavClient.SetTransport(newSyncTransport(cloudConf.WebDAV.Endpoint, cloudConf.WebDAV.SkipTlsVerify, Conf.Sync.WebDAV.DNSRecordType, Conf.Sync.WebDAV.DNSRecordValue, Conf.Sync.WebDAV.ConnectPort))
 		cloudRepo = cloud.NewWebDAV(&cloud.BaseCloud{Conf: cloudConf}, webdavClient)
 	case conf.ProviderLocal:
 		cloudRepo = cloud.NewLocal(&cloud.BaseCloud{Conf: cloudConf})

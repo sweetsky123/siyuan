@@ -454,6 +454,7 @@ func SetSyncProviderS3(s3 *conf.S3) (err error) {
 	s3.Region = strings.TrimSpace(s3.Region)
 	s3.Timeout = util.NormalizeTimeout(s3.Timeout)
 	s3.ConcurrentReqs = util.NormalizeConcurrentReqs(s3.ConcurrentReqs, conf.ProviderS3)
+	s3.ConnectPort = normalizeConnectPort(s3.ConnectPort)
 
 	Conf.Sync.S3 = s3
 	Conf.Save()
@@ -468,10 +469,19 @@ func SetSyncProviderWebDAV(webdav *conf.WebDAV) (err error) {
 	webdav.Password = strings.TrimSpace(webdav.Password)
 	webdav.Timeout = util.NormalizeTimeout(webdav.Timeout)
 	webdav.ConcurrentReqs = util.NormalizeConcurrentReqs(webdav.ConcurrentReqs, conf.ProviderWebDAV)
+	webdav.ConnectPort = normalizeConnectPort(webdav.ConnectPort)
 
 	Conf.Sync.WebDAV = webdav
 	Conf.Save()
 	return
+}
+
+// normalizeConnectPort 将非法连接端口归零：0 表示不覆盖，1–65535 为有效拨号端口。
+func normalizeConnectPort(port int) int {
+	if 0 >= port || 65535 < port {
+		return 0
+	}
+	return port
 }
 
 func SetSyncProviderLocal(local *conf.Local) (err error) {

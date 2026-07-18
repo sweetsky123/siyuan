@@ -1681,6 +1681,10 @@ declare namespace Config {
          * Custom DNS record value.
          */
         dnsRecordValue: string;
+        /**
+         * TCP connect port used only for dialing. `0` keeps the Endpoint port and does not affect HTTP Host or S3 signing Host.
+         */
+        connectPort: number;
     }
 
     /**
@@ -1727,6 +1731,10 @@ declare namespace Config {
          * Custom DNS record value.
          */
         dnsRecordValue: string;
+        /**
+         * TCP connect port used only for dialing. `0` keeps the Endpoint port and does not affect HTTP Host.
+         */
+        connectPort: number;
         /**
          * Username
          */

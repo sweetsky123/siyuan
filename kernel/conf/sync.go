@@ -59,6 +59,7 @@ type S3 struct {
 	Headers        []*SyncHeader `json:"headers"`        // 自定义请求头
 	DNSRecordType  string        `json:"dnsRecordType"`  // 指定解析记录类型：A 或 CNAME
 	DNSRecordValue string        `json:"dnsRecordValue"` // 指定解析记录值
+	ConnectPort    int           `json:"connectPort"`    // 指定连接端口，0 表示沿用 Endpoint 端口，不影响 HTTP Host / 签名
 }
 
 type WebDAV struct {
@@ -73,6 +74,7 @@ type WebDAV struct {
 	Headers        []*SyncHeader `json:"headers"`        // 自定义请求头
 	DNSRecordType  string        `json:"dnsRecordType"`  // 指定解析记录类型：A 或 CNAME
 	DNSRecordValue string        `json:"dnsRecordValue"` // 指定解析记录值
+	ConnectPort    int           `json:"connectPort"`    // 指定连接端口，0 表示沿用 Endpoint 端口，不影响 HTTP Host
 }
 
 type SyncHeader struct {
