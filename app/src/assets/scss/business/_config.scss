@@ -87,19 +87,48 @@
     }
   }
 
+  // 宽屏标签与输入同行时中英分两行；窄屏叠排时由 .config-wrap 规则收成一行
   &-provider-label {
     display: flex;
     flex-direction: column;
     justify-content: center;
     line-height: 1.4;
+    min-width: 0;
   }
 
+  // 标签列：双语文案与说明图标横向贴紧
+  &-provider-field-label {
+    gap: 4px;
+    min-width: 0;
+    align-items: center;
+  }
+
+  &-provider-tip {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    cursor: pointer;
+    color: var(--b3-theme-on-surface);
+    line-height: 1;
+
+    svg {
+      height: 15px;
+      width: 15px;
+    }
+
+    &:hover {
+      color: var(--b3-theme-on-background);
+    }
+  }
+
+  // 右侧控件固定 fn__size200；行内输入在占位容器内拉满
   &-sync-placeholder {
     display: flex;
     align-items: center;
     min-width: 0;
 
     .b3-text-field {
+      flex: 1;
       min-width: 0;
     }
 

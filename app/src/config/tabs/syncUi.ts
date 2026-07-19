@@ -331,57 +331,59 @@ const genProviderField = (field: SyncProviderFieldDef): string => {
 
 const escapeAttr = (value: string) => value.replaceAll("&", "&amp;").replaceAll("\"", "&quot;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 
-// 字段说明图标：点击后以 snackbar（#message）展示，与其它系统提示一致
+// 字段说明图标：紧贴双语文案右侧，点击后以 snackbar（#message）展示
 const genFieldTipIcon = (tip?: string) => {
     if (!tip) {
         return "";
     }
-    // 略小于正文、略大于 14px，flex-shrink:0 保证贴在标签右侧
-    return `<span class="fn__space"></span><span class="fn__flex-center" data-field-tip="${escapeAttr(tip)}" role="button" tabindex="0" style="flex-shrink:0;cursor:pointer" aria-label="${escapeAttr(tip)}"><svg style="height: 15px; width: 15px;"><use xlink:href="#iconInfo"></use></svg></span>`;
+    return `<span class="config-provider-tip" data-field-tip="${escapeAttr(tip)}" role="button" tabindex="0" aria-label="${escapeAttr(tip)}"><svg><use xlink:href="#iconInfo"></use></svg></span>`;
 };
 
 const genPlaceholderButton = () => `<button class="block__icon block__icon--show" data-action="insertSyncPlaceholder" type="button" aria-label="Insert secret or variable">
     <svg><use xlink:href="#iconKeymap"></use></svg>
 </button>`;
 
-const genProviderFlexInput = (label: string, id: string, attrs = "", tip = "") => `<div class="b3-label b3-label--inner fn__flex">
-    <div class="fn__flex fn__flex-center fn__size200"><div class="fn__flex-1">${label}</div>${genFieldTipIcon(tip)}</div>
+// 与全局设置项一致：左侧标签 fn__flex-1，右侧控件 fn__size200；仅额外挂双语与 tip
+const genProviderFieldLabel = (label: string, tip = "") => `<div class="fn__flex fn__flex-1 config-provider-field-label">${label}${genFieldTipIcon(tip)}</div>`;
+
+const genProviderFlexInput = (label: string, id: string, attrs = "", tip = "") => `<div class="b3-label b3-label--inner fn__flex config-wrap">
+    ${genProviderFieldLabel(label, tip)}
     <div class="fn__space"></div>
-    <div class="config-sync-placeholder fn__block">
+    <div class="config-sync-placeholder fn__flex-center fn__size200">
         <input id="${id}" class="b3-text-field fn__block"${attrs ? ` ${attrs}` : ""}>
         ${genPlaceholderButton()}
     </div>
 </div>`;
 
-const genProviderFlexPassword = (label: string, id: string) => `<div class="b3-label b3-label--inner fn__flex">
-    <div class="fn__flex-center fn__size200">${label}</div>
+const genProviderFlexPassword = (label: string, id: string) => `<div class="b3-label b3-label--inner fn__flex config-wrap">
+    ${genProviderFieldLabel(label)}
     <div class="fn__space"></div>
-    <div class="config-sync-placeholder b3-form__icona fn__block">
+    <div class="config-sync-placeholder b3-form__icona fn__flex-center fn__size200">
         <input id="${id}" type="password" class="b3-text-field b3-form__icona-input">
         <svg class="b3-form__icona-icon" data-action="togglePassword"><use xlink:href="#iconEye"></use></svg>
         ${genPlaceholderButton()}
     </div>
 </div>`;
 
-const genProviderFlexSelect = (label: string, id: string, optionsHtml: string) => `<div class="b3-label b3-label--inner fn__flex">
-    <div class="fn__flex-center fn__size200">${label}</div>
+const genProviderFlexSelect = (label: string, id: string, optionsHtml: string) => `<div class="b3-label b3-label--inner fn__flex config-wrap">
+    ${genProviderFieldLabel(label)}
     <div class="fn__space"></div>
-    <select class="b3-select fn__block" id="${id}">
+    <select class="b3-select fn__flex-center fn__size200" id="${id}">
         ${optionsHtml}
     </select>
 </div>`;
 
-const genProviderHeaders = (label: string, id: "headers") => `<div class="b3-label b3-label--inner fn__flex config-sync-headers" id="${id}">
-    <div class="fn__flex-center fn__size200">${label}</div>
+// 请求头：标签仍 200px；内容区 fn__flex-1 占满剩余（多列编辑不能塞进 size200）
+const genProviderHeaders = (label: string, id: "headers") => `<div class="b3-label b3-label--inner fn__flex config-wrap config-sync-headers" id="${id}">
+    <div class="fn__flex-center fn__size200 config-provider-field-label">${label}</div>
     <div class="fn__space"></div>
-    <div class="config-sync-headers__body fn__block">
+    <div class="config-sync-headers__body fn__flex-1">
         <div class="config-sync-headers__rows" data-role="syncHeaderRows"></div>
         <button class="b3-button b3-button--outline" data-action="addSyncHeader" type="button">
             <svg><use xlink:href="#iconAdd"></use></svg>添加请求头(Add Header)
         </button>
     </div>
 </div>`;
-
 const genSyncHeaderRow = (header: Config.ISyncHeader = {name: "", value: ""}) => `<div class="config-sync-headers__row" data-role="syncHeaderRow">
     <div class="config-sync-placeholder">
         <input class="b3-text-field fn__block" data-name="name" spellcheck="false" placeholder="Name" value="${escapeAttr(header.name)}">
