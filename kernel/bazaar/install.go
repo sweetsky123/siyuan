@@ -67,8 +67,10 @@ func downloadBazaarFile(repoURLHash string, pushProgress bool) (data []byte, err
 	return v.([]byte), nil
 }
 
-// incPackageDownloads 增加集市包下载次数
-func incPackageDownloads(repoURL, systemID string) {
+// incPackageDownloads 增加集市包下载次数。
+// systemID 每次请求使用同形态随机串，不上传真实设备 ID，避免跨安装关联设备。
+func incPackageDownloads(repoURL string) {
+	systemID := util.RandomReportDeviceID()
 	if "" == systemID {
 		return
 	}
@@ -82,7 +84,7 @@ func incPackageDownloads(repoURL, systemID string) {
 }
 
 // InstallPackage 安装集市包
-func InstallPackage(repoURL, repoHash, installPath, systemID, pkgType, packageName string) error {
+func InstallPackage(repoURL, repoHash, installPath, pkgType, packageName string) error {
 	repoURLHash := repoURL + "@" + repoHash
 	data, err := downloadBazaarFile(repoURLHash, true)
 	if err != nil {
@@ -101,7 +103,7 @@ func InstallPackage(repoURL, repoHash, installPath, systemID, pkgType, packageNa
 		logging.LogWarnf("set package [%s] folder mtime failed: %s", packageName, err)
 	}
 
-	go incPackageDownloads(repoURL, systemID)
+	go incPackageDownloads(repoURL)
 	return nil
 }
 

@@ -338,7 +338,8 @@ func installBazaarPackage(pkgType, repoURL, repoHash, packageName string) (meta 
 	installedPkg, parseErr := bazaar.ParsePackageJSON(filepath.Join(installPath, jsonFileName))
 	meta.update = parseErr == nil && installedPkg != nil && installedPkg.Name == packageName
 
-	err = bazaar.InstallPackage(repoURL, repoHash, installPath, Conf.System.ID, pkgType, packageName)
+	// 集市下载计数上报在 bazaar 包内使用 RandomReportDeviceID，不传真实 Conf.System.ID
+	err = bazaar.InstallPackage(repoURL, repoHash, installPath, pkgType, packageName)
 	if err != nil {
 		err = fmt.Errorf(Conf.Language(46), packageName, err)
 	}

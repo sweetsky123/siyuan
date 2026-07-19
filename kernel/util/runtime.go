@@ -203,6 +203,74 @@ func GetDeviceID() string {
 	return gulu.Rand.String(12)
 }
 
+// RandomReportDeviceID 生成与本机 GetDeviceID 同形态的随机串，仅用于非同步网络上报（如集市下载计数）。
+// 故意不使用真实 machine-id / Conf.System.ID，避免跨请求关联设备；同步设备身份仍走 GetDeviceID / Conf.System.ID。
+// 桌面端按 GOOS 匹配 machineid 常见形态：Linux 32 位小写十六进制，Windows/Darwin（及默认）大写 UUID 文本；非桌面端 12 位 a-z0-9。
+func RandomReportDeviceID() string {
+	if ContainerStd == Container {
+		switch runtime.GOOS {
+		case "linux":
+			// machineid 读取 /var/lib/dbus/machine-id 或 /etc/machine-id，通常为 32 位小写十六进制、无连字符
+			return randomReportHex(16)
+		case "windows", "darwin":
+			// Windows MachineGuid / Darwin IOPlatformUUID 多为大写 UUID：XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
+			return strings.ToUpper(randomReportUUID())
+		default:
+			// BSD 等常见亦为 UUID 文本形态
+			return strings.ToUpper(randomReportUUID())
+		}
+	}
+	// 非桌面端与 GetDeviceID 回退一致：12 位 a-z0-9
+	return randomReportAlnum(12)
+}
+
+// randomReportHex 生成 n 字节的小写十六进制串（长度 2n），失败时回退到同长度全零十六进制。
+func randomReportHex(n int) string {
+	b := make([]byte, n)
+	if _, err := rand.Read(b); err != nil {
+		// crypto/rand 失败时仍返回非空同形态串，避免上报空 systemID
+		return strings.Repeat("0", n*2)
+	}
+	const hexdigits = "0123456789abcdef"
+	out := make([]byte, n*2)
+	for i, v := range b {
+		out[i*2] = hexdigits[v>>4]
+		out[i*2+1] = hexdigits[v&0x0f]
+	}
+	return string(out)
+}
+
+// randomReportUUID 生成标准 8-4-4-4-12 小写十六进制 UUID 文本（16 字节随机，不强制 RFC 变体位）。
+func randomReportUUID() string {
+	h := randomReportHex(16)
+	// h 恒为 32 位十六进制；切片后插入连字符
+	return h[0:8] + "-" + h[8:12] + "-" + h[12:16] + "-" + h[16:20] + "-" + h[20:32]
+}
+
+// randomReportAlnum 生成 length 位 a-z0-9 随机串，字符集与 gulu.Rand.String 一致。
+func randomReportAlnum(length int) string {
+	const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
+	out := make([]byte, length)
+	// 用拒绝采样避免 modulo bias
+	max := 256 - (256 % len(alphabet))
+	for i := 0; i < length; {
+		var b [1]byte
+		if _, err := rand.Read(b[:]); err != nil {
+			// 失败时填 '0'，保证非空且字符集合法
+			for j := i; j < length; j++ {
+				out[j] = '0'
+			}
+			break
+		}
+		if int(b[0]) >= max {
+			continue
+		}
+		out[i] = alphabet[int(b[0])%len(alphabet)]
+		i++
+	}
+	return string(out)
+}
+
 func GetDeviceName() string {
 	ret, err := os.Hostname()
 	if err != nil {
