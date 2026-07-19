@@ -220,11 +220,26 @@ var (
 func RefreshCheckJob2H() {
 	go refreshSubscriptionExpirationRemind()
 	go refreshUser()
-	go refreshAnnouncement()
+	// 公告拉取会请求 /apis/siyuan/version，与自动更新同源；未开启时不后台请求
+	if Conf.System.DownloadInstallPkg {
+		go refreshAnnouncement()
+	}
 }
 
 func RefreshCheckJob6H() {
+	// 未开启自动下载更新安装包时不做后台检查，避免用户不知情时发起更新相关网络请求
+	if !Conf.System.DownloadInstallPkg {
+		return
+	}
 	go refreshCheckDownloadInstallPkg()
+}
+
+// RefreshRhyResultJob 定时刷新云端版本元数据；仅在用户开启自动下载更新安装包后执行。
+func RefreshRhyResultJob() {
+	if !Conf.System.DownloadInstallPkg {
+		return
+	}
+	util.RefreshRhyResultJob()
 }
 
 func refreshSubscriptionExpirationRemind() {

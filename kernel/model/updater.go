@@ -82,6 +82,7 @@ var checkDownloadInstallPkgLock = sync.Mutex{}
 func checkDownloadInstallPkg() {
 	defer logging.Recover()
 
+	// skipNewVerInstallPkg 已包含 DownloadInstallPkg 开关：未开启时不检查、不下载
 	if skipNewVerInstallPkg() {
 		return
 	}
@@ -298,6 +299,7 @@ func CheckUpdate(showMsg bool) {
 	} else {
 		util.PushUpdateMsg("update-notify", fmt.Sprintf(Conf.Language(9), "<a href=\""+releaseLang+"\">"+releaseLang+"</a>"), 15000)
 	}
+	// 仅在用户开启自动下载时才后台拉取安装包；手动检查更新仍可提示新版本，但不强制下载
 	go func() {
 		defer logging.Recover()
 		checkDownloadInstallPkg()

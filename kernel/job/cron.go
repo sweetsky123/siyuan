@@ -32,7 +32,8 @@ func StartCron() {
 	go every(7*time.Second, task.StatusJob)
 	go every(5*time.Second, model.SyncDataJob)
 	go every(2*time.Hour, model.StatJob)
-	go every(6*time.Hour, util.RefreshRhyResultJob, "RefreshRhyResultJob")
+	// 版本元数据后台刷新受 DownloadInstallPkg 门闩控制，见 model.RefreshRhyResultJob
+	go every(6*time.Hour, model.RefreshRhyResultJob, "RefreshRhyResultJob")
 	go every(2*time.Hour, model.RefreshCheckJob2H)
 	go every(6*time.Hour, model.RefreshCheckJob6H)
 	go every(3*time.Second, model.FlushUpdateRefTextRenameDocJob)

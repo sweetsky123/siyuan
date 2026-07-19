@@ -53,11 +53,12 @@ type System struct {
 
 func NewSystem() *System {
 	return &System{
-		ID:                 util.GetDeviceID(),
-		Name:               util.GetDeviceName(),
-		KernelVersion:      util.Ver,
-		NetworkProxy:       &NetworkProxy{},
-		DownloadInstallPkg: true,
+		ID:            util.GetDeviceID(),
+		Name:          util.GetDeviceName(),
+		KernelVersion: util.Ver,
+		NetworkProxy:  &NetworkProxy{},
+		// 默认关闭自动检查更新与自动下载安装包，遵循用户自由与隐私优先；用户手动开启后恢复原逻辑
+		DownloadInstallPkg: false,
 	}
 }
 

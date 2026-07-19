@@ -331,11 +331,15 @@ func Mount(boxID string) (alreadyMount bool, err error) {
 		}
 
 		task.AppendAsyncTaskWithDelay(task.PushMsg, 3*time.Second, util.PushErrMsg, Conf.Language(244), 7000)
-		go func() {
-			// 每次打开帮助文档时自动检查版本更新并提醒 https://github.com/siyuan-note/siyuan/issues/5057
-			time.Sleep(time.Second * 10)
-			CheckUpdate(true)
-		}()
+		// 仅当用户手动开启「自动下载更新安装包」后，才在打开帮助文档时自动检查更新
+		// 用户不知情或未修改时默认不检查、不下载，优先用户自由与隐私
+		if Conf.System.DownloadInstallPkg {
+			go func() {
+				// 每次打开帮助文档时自动检查版本更新并提醒 https://github.com/siyuan-note/siyuan/issues/5057
+				time.Sleep(time.Second * 10)
+				CheckUpdate(true)
+			}()
+		}
 	}
 
 	if !gulu.File.IsDir(localPath) {
