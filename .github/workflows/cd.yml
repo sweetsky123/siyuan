@@ -340,7 +340,7 @@ jobs:
           path: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}
 
       - name: 安装 Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version-file: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/kernel/go.mod
           cache-dependency-path: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/kernel/go.sum
@@ -348,13 +348,15 @@ jobs:
       - run: go version
 
       - name: 安装 Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 24
+      - run: node -v
 
       - name: 安装 pnpm
         run: npm install -g ${{ needs.prepare.outputs.packageManager }}
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app
+        - run: pnpm -v
 
       - name: 缓存 pnpm store
         uses: actions/cache@v5
