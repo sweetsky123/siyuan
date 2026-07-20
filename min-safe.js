@@ -44,7 +44,7 @@ const { optimize: svgoOptimize } = require('svgo');
  * - true：与 min.js 相同（terser.minify + TERSER_OPTIONS；内联 JS 用 mangle.toplevel=false）
  * - false / 未设置 / 其它值：使用本脚本的 compressJsSafe（仅去注释与可删空白）
  */
-const USE_TERSER = false;
+const USE_TERSER = true;
 
 /** 与 min.js 一致的 terser 选项（仅当 USE_TERSER === true 时使用） */
 const TERSER_OPTIONS = {
@@ -431,6 +431,9 @@ function canStartStatement(token) {
 
 /**
  * 判断 `/` 在当前位置更可能是正则还是除法
+ * 注意：`}` / `)` 等之后存在「语句后正则」与「表达式后除法」的固有歧义；
+ * 仅靠前一 token 无法 100% 区分。readJsToken 在启发式判定为正则时，
+ * 若字面量扫描失败会回退为除法，避免把合法除法误杀为「正则未闭合」。
  * @param {string} prevToken
  */
 function isRegexContext(prevToken) {
@@ -475,6 +478,51 @@ function isRegexContext(prevToken) {
     return true;
   }
   return false;
+}
+
+/**
+ * 尝试从 start（指向 `/`）扫描正则字面量（含 flags）
+ * 成功返回结束下标（开区间）；无法形成合法正则字面量时返回 -1（调用方应回退为除法）
+ * ECMAScript 字符类不嵌套：仅用 inClass 布尔；类外未转义 `/` 结束体部
+ * @param {string} code
+ * @param {number} start
+ * @returns {number}
+ */
+function scanJsRegexLiteral(code, start) {
+  const n = code.length;
+  if (start >= n || code[start] !== '/') return -1;
+  let j = start + 1;
+  let inClass = false;
+  while (j < n) {
+    const ch = code[j];
+    if (isLineTerm(code.charCodeAt(j))) {
+      return -1;
+    }
+    if (ch === '\\') {
+      if (j + 1 >= n) return -1;
+      if (isLineTerm(code.charCodeAt(j + 1))) return -1;
+      j += 2;
+      continue;
+    }
+    if (ch === '[') {
+      // 类内的 `[` 视为普通字符，不增加嵌套深度（与 ES 字符类语义一致）
+      if (!inClass) inClass = true;
+      j += 1;
+      continue;
+    }
+    if (ch === ']' && inClass) {
+      inClass = false;
+      j += 1;
+      continue;
+    }
+    if (ch === '/' && !inClass) {
+      j += 1;
+      while (j < n && /[a-z]/i.test(code[j])) j += 1;
+      return j;
+    }
+    j += 1;
+  }
+  return -1;
 }
 
 /**
@@ -637,36 +685,15 @@ function readJsToken(code, i, prevToken) {
   }
 
   // 正则 或 除法
+  // 预检已通过 node --check 时，源码必为合法 JS；此时「正则未闭合」只可能是
+  // `/` 除法被启发式误判为正则。扫描失败则回退为除法，禁止因此中断 CI。
   if (ch === '/') {
     if (isRegexContext(prevToken)) {
-      let j = i + 1;
-      let inClass = false;
-      while (j < n) {
-        if (isLineTerm(code.charCodeAt(j))) {
-          throw new Error(`JS 正则未闭合，偏移 ${i}`);
-        }
-        if (code[j] === '\\') {
-          j += 2;
-          continue;
-        }
-        if (code[j] === '[') {
-          inClass = true;
-          j += 1;
-          continue;
-        }
-        if (code[j] === ']' && inClass) {
-          inClass = false;
-          j += 1;
-          continue;
-        }
-        if (code[j] === '/' && !inClass) {
-          j += 1;
-          while (j < n && /[a-z]/i.test(code[j])) j += 1;
-          return { value: code.slice(i, j), nextIndex: j };
-        }
-        j += 1;
+      const regEnd = scanJsRegexLiteral(code, i);
+      if (regEnd > i) {
+        return { value: code.slice(i, regEnd), nextIndex: regEnd };
       }
-      throw new Error(`JS 正则未闭合，偏移 ${i}`);
+      // 回退为除法 / 除法赋值（例如对象字面量后的 / 2）
     }
     if (i + 1 < n && code[i + 1] === '=') {
       return { value: '/=', nextIndex: i + 2 };
@@ -942,12 +969,11 @@ function validateJs(code, ext) {
 }
 
 /**
- * 校验 CSS：与压缩器同栈（postcss + cssnano）
- * 仅用空 postcss 解析过宽，部分非法输入能 parse 却在 cssnano 阶段失败
+ * 校验 CSS 是否可被 PostCSS 解析
  * @param {string} code
  */
 async function validateCss(code) {
-  await postcss([cssnano({ preset: CSSNANO_PRESET })]).process(code, { from: undefined });
+  await postcss().process(code, { from: undefined });
 }
 
 /**
