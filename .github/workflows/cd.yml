@@ -378,7 +378,7 @@ jobs:
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}
 
       - name: 压缩前端静态文件
-        run: node min-safe.js
+        run: node min.js
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}
 
       - name: 安装 JDK
