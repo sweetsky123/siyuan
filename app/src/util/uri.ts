@@ -102,7 +102,7 @@ const processSiYuanUriPlugins = (app: App, uriObj: URL): boolean => {
 };
 
 const processSiYuanUriBazaar = (app: App, uriObj: URL): boolean => {
-    /// #if !MOBILE
+    /// #if !MOBILE || MOBILE_MARKET
     const [, _type, _name, target] = uriObj.pathname.split("/");
     if (!_type || !_name) return false;
     const resourceType = _type as TBazaarType;

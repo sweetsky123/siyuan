@@ -84,6 +84,7 @@ module.exports = (env, argv) => {
                             loader: "ifdef-loader", options: {
                                 BROWSER: false,
                                 MOBILE: false,
+                                MOBILE_MARKET: false,
                             },
                         },
                     ],

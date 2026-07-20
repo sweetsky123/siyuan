@@ -503,6 +503,94 @@
   }
 }
 
+// 移动端全屏 model 中的集市：纵向 README、标题换行、高度链
+.config.config--mobile {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  box-sizing: border-box;
+
+  > .fn__flex-column {
+    height: 100%;
+    min-height: 0;
+    width: 100%;
+  }
+
+  .layout-tab-bar {
+    flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+
+  .config-bazaar__panel {
+    padding-bottom: 8px;
+  }
+
+  .config-bazaar__title {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 12px;
+    row-gap: 8px;
+
+    .b3-text-field {
+      flex: 1 1 140px;
+      min-width: 0;
+    }
+
+    // 窄屏去掉中间弹性空白，避免搜索框被挤出
+    > .fn__flex-1 {
+      display: none;
+    }
+
+    .b3-select {
+      max-width: 100%;
+    }
+  }
+
+  .config-bazaar__content {
+    margin: 1px 8px;
+  }
+
+  .config-bazaar__readme {
+    padding: 12px 0;
+    flex-direction: column;
+    overflow: auto;
+
+    .item__side {
+      width: 100%;
+      max-width: none;
+      height: auto;
+      overflow: visible;
+      padding: 0 16px;
+      box-sizing: border-box;
+    }
+
+    .item__main {
+      margin-left: 0;
+      margin-top: 12px;
+      padding: 0 16px 16px;
+      min-height: 0;
+      overflow: visible;
+      box-sizing: border-box;
+    }
+
+    .item__img {
+      margin: 16px auto;
+    }
+
+    .item__preview {
+      height: 180px;
+      margin-bottom: 16px;
+    }
+
+    .item__title {
+      font-size: 20px;
+    }
+  }
+}
+
 .config-about__logo {
   display: flex;
   align-items: center;

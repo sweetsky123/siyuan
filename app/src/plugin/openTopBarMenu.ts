@@ -1,25 +1,43 @@
 import {App} from "../index";
 import {Menu} from "./Menu";
-import {isHuawei, setStorageVal} from "../protyle/util/compatibility";
+import {setStorageVal} from "../protyle/util/compatibility";
 /// #if !MOBILE
 import {openSetting} from "../config";
 import {setTabPosition} from "../layout/tabUtil";
+/// #endif
+/// #if MOBILE && MOBILE_MARKET
+import {openModel} from "../mobile/menu/model";
+import {bindSettingSaveDelegation} from "../config/setting/save";
+import {mountBazaarTab} from "../config/bazaar";
 /// #endif
 import {Constants} from "../constants";
 
 export const openTopBarMenu = (app: App, target?: Element) => {
     const menu = new Menu(Constants.MENU_BAR_PLUGIN);
-    /// #if !MOBILE
+    /// #if !MOBILE || MOBILE_MARKET
     menu.addItem({
         id: "manage",
         icon: "iconSettings",
         label: window.siyuan.languages.manage,
-        ignore: isHuawei() || window.siyuan.config.readonly,
+        ignore: window.siyuan.config.readonly,
         click() {
+            /// #if MOBILE
+            openModel({
+                title: window.siyuan.languages.bazaar,
+                icon: "iconBazaar",
+                html: `<div class="config config--mobile" style="height:100%;min-height:0"></div>`,
+                bindEvent(modelMainElement: HTMLElement) {
+                    const root = modelMainElement.firstElementChild as HTMLElement;
+                    bindSettingSaveDelegation(root);
+                    mountBazaarTab(root, undefined, app);
+                }
+            });
+            /// #else
             openSetting(app, "bazaar");
+            /// #endif
         }
     });
-    menu.addSeparator({id: "separator_1", ignore: isHuawei() || window.siyuan.config.readonly});
+    menu.addSeparator({id: "separator_1", ignore: window.siyuan.config.readonly});
     /// #endif
     let hasPlugin = false;
     app.plugins.forEach((plugin) => {
