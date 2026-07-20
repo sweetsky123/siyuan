@@ -752,6 +752,56 @@ export const genImportMenu = (notebookId: string, pathString: string) => {
         };
     };
     /// #endif
+    /// #if BROWSER
+    // 浏览器/移动端无本地路径：通过 file input 上传后由 importMdFiles 重建目录
+    const importBrowserMd = (isDoc: boolean) => {
+        const accept = isDoc ? ".md,.markdown,text/markdown" : undefined;
+        const inputAttrs = isDoc
+            ? `type="file" accept="${accept}"`
+            : `type="file" multiple webkitdirectory directory`;
+        return {
+            id: isDoc ? "importMarkdownDoc" : "importMarkdownFolder",
+            icon: isDoc ? "iconMarkdown" : "iconFolder",
+            label: `Markdown ${isDoc ? window.siyuan.languages.doc : window.siyuan.languages.folder}<input class="b3-form__upload" ${inputAttrs}>`,
+            bind: (element: HTMLElement) => {
+                element.querySelector(".b3-form__upload").addEventListener("change", (event: InputEvent & {
+                    target: HTMLInputElement
+                }) => {
+                    const files = event.target.files;
+                    if (!files || files.length === 0) {
+                        return;
+                    }
+                    const formData = new FormData();
+                    let fileCount = 0;
+                    Array.from(files).forEach((file: File & { webkitRelativePath?: string }) => {
+                        // 文件夹导入时保留相对路径；单文档仅传文件本身
+                        const relPath = (!isDoc && file.webkitRelativePath)
+                            ? file.webkitRelativePath
+                            : file.name;
+                        if (!relPath || relPath.includes("..")) {
+                            return;
+                        }
+                        formData.append("file", file, file.name);
+                        formData.append("paths", relPath);
+                        fileCount++;
+                    });
+                    if (fileCount === 0) {
+                        showMessage(window.siyuan.languages.uploadError, 3000, "error");
+                        event.target.value = "";
+                        return;
+                    }
+                    formData.append("notebook", notebookId);
+                    formData.append("toPath", pathString);
+                    fetchPost("/api/import/importMdFiles", formData, () => {
+                        reloadDocTree();
+                    });
+                    // 允许再次选择同一文件
+                    event.target.value = "";
+                });
+            }
+        };
+    };
+    /// #endif
     window.siyuan.menus.menu.append(new MenuItem({
         id: "import",
         icon: "iconDownload",
@@ -796,6 +846,9 @@ export const genImportMenu = (notebookId: string, pathString: string) => {
             /// #if !BROWSER
             importstdmd("Markdown " + window.siyuan.languages.doc, true),
             importstdmd("Markdown " + window.siyuan.languages.folder)
+            /// #else
+            importBrowserMd(true),
+            importBrowserMd(false)
             /// #endif
         ],
     }).element);

@@ -21,6 +21,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -370,4 +371,214 @@ func importZipMd(c *gin.Context) {
 		ret.Msg = err.Error()
 		return
 	}
+}
+
+// importMdFiles 接收浏览器/移动端上传的 Markdown 单文件或多文件（文件夹），
+// 在临时目录重建相对路径后调用 ImportFromLocalPath。
+// 表单字段：file（可多个）、paths（可选，与 file 一一对应的相对路径）、notebook、toPath。
+func importMdFiles(c *gin.Context) {
+	ret := gulu.Ret.NewResult()
+	defer c.JSON(http.StatusOK, ret)
+
+	util.PushEndlessProgress(model.Conf.Language(73))
+	defer util.ClearPushProgress(100)
+
+	form, err := c.MultipartForm()
+	if err != nil {
+		logging.LogErrorf("parse import markdown files failed: %s", err)
+		ret.Code = -1
+		ret.Msg = err.Error()
+		return
+	}
+
+	files := form.File["file"]
+	if 1 > len(files) {
+		logging.LogErrorf("parse import markdown files failed, no file found")
+		ret.Code = -1
+		ret.Msg = "no file found"
+		return
+	}
+
+	if 1 > len(form.Value["notebook"]) || 1 > len(form.Value["toPath"]) {
+		logging.LogErrorf("parse import markdown files failed, notebook or toPath is empty")
+		ret.Code = -1
+		ret.Msg = "notebook or toPath is empty"
+		return
+	}
+	notebook := form.Value["notebook"][0]
+	toPath := form.Value["toPath"][0]
+	if "" == notebook || "" == toPath {
+		ret.Code = -1
+		ret.Msg = "notebook or toPath is empty"
+		return
+	}
+
+	paths := form.Value["paths"]
+	if 0 < len(paths) && len(paths) != len(files) {
+		logging.LogErrorf("parse import markdown files failed, paths count [%d] != files count [%d]", len(paths), len(files))
+		ret.Code = -1
+		ret.Msg = "paths count does not match files count"
+		return
+	}
+
+	importBase := filepath.Join(util.TempDir, "import", "mdfiles-"+gulu.Rand.String(7))
+	if err = os.MkdirAll(importBase, 0755); err != nil {
+		logging.LogErrorf("make import dir [%s] failed: %s", importBase, err)
+		ret.Code = -1
+		ret.Msg = err.Error()
+		return
+	}
+	defer os.RemoveAll(importBase)
+
+	// 是否按「单文档」导入：仅 1 个文件且相对路径不含目录层级
+	singleDoc := 1 == len(files)
+	if singleDoc {
+		relHint := files[0].Filename
+		if 0 < len(paths) {
+			relHint = paths[0]
+		}
+		relHint = filepath.ToSlash(strings.TrimSpace(relHint))
+		if strings.Contains(relHint, "/") {
+			singleDoc = false
+		}
+	}
+
+	for i, file := range files {
+		rel := file.Filename
+		if 0 < len(paths) {
+			rel = paths[i]
+		}
+		origRel := rel
+		rel, cleanErr := sanitizeImportRelPath(rel)
+		if nil != cleanErr {
+			logging.LogErrorf("invalid import relative path [%s]: %s", origRel, cleanErr)
+			ret.Code = -1
+			ret.Msg = cleanErr.Error()
+			return
+		}
+
+		// 单文档导入时只保留文件名，避免多余目录
+		if singleDoc {
+			rel = path.Base(filepath.ToSlash(rel))
+			if "" == rel || "." == rel {
+				ret.Code = -1
+				ret.Msg = "invalid file name"
+				return
+			}
+		}
+
+		writePath := filepath.Join(importBase, filepath.FromSlash(rel))
+		if !gulu.File.IsSubPath(importBase, writePath) {
+			logging.LogErrorf("import path [%s] is not sub path of import dir [%s]", writePath, importBase)
+			ret.Code = -1
+			ret.Msg = "import path is not sub path of import dir"
+			return
+		}
+		if err = os.MkdirAll(filepath.Dir(writePath), 0755); err != nil {
+			logging.LogErrorf("make import file dir [%s] failed: %s", filepath.Dir(writePath), err)
+			ret.Code = -1
+			ret.Msg = err.Error()
+			return
+		}
+
+		var reader io.ReadCloser
+		var writer *os.File
+		reader, err = file.Open()
+		if err != nil {
+			logging.LogErrorf("read import markdown file failed: %s", err)
+			ret.Code = -1
+			ret.Msg = err.Error()
+			return
+		}
+		writer, err = os.OpenFile(writePath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
+		if err != nil {
+			_ = reader.Close()
+			logging.LogErrorf("open import markdown file [%s] failed: %s", writePath, err)
+			ret.Code = -1
+			ret.Msg = err.Error()
+			return
+		}
+		_, err = io.Copy(writer, reader)
+		closeErrW := writer.Close()
+		closeErrR := reader.Close()
+		if err != nil {
+			logging.LogErrorf("write import markdown file failed: %s", err)
+			ret.Code = -1
+			ret.Msg = err.Error()
+			return
+		}
+		if nil != closeErrW {
+			logging.LogErrorf("close import markdown file [%s] failed: %s", writePath, closeErrW)
+			ret.Code = -1
+			ret.Msg = closeErrW.Error()
+			return
+		}
+		if nil != closeErrR {
+			logging.LogErrorf("close import upload reader failed: %s", closeErrR)
+			ret.Code = -1
+			ret.Msg = closeErrR.Error()
+			return
+		}
+	}
+
+	localPath := importBase
+	if singleDoc {
+		entries, readErr := os.ReadDir(importBase)
+		if nil != readErr || 1 != len(entries) || entries[0].IsDir() {
+			logging.LogErrorf("resolve single markdown import path failed: %v", readErr)
+			ret.Code = -1
+			ret.Msg = "resolve import path failed"
+			return
+		}
+		localPath = filepath.Join(importBase, entries[0].Name())
+	} else {
+		// 若临时根下仅有一个顶层目录（webkitdirectory 常见形态），直接导入该目录以保留文件夹名
+		entries, readErr := os.ReadDir(importBase)
+		if nil == readErr && 1 == len(entries) && entries[0].IsDir() {
+			localPath = filepath.Join(importBase, entries[0].Name())
+		}
+	}
+
+	err = model.ImportFromLocalPath(notebook, localPath, toPath)
+	if err != nil {
+		ret.Code = -1
+		ret.Msg = err.Error()
+		return
+	}
+}
+
+// sanitizeImportRelPath 规范化并校验上传文件的相对路径，拒绝绝对路径与路径穿越。
+func sanitizeImportRelPath(rel string) (string, error) {
+	rel = strings.TrimSpace(rel)
+	if "" == rel {
+		return "", fmt.Errorf("empty relative path")
+	}
+	rel = filepath.ToSlash(rel)
+	rel = strings.TrimPrefix(rel, "/")
+	if "" == rel {
+		return "", fmt.Errorf("empty relative path")
+	}
+	// 拒绝盘符与 URL 形态
+	if strings.Contains(rel, "://") || (len(rel) > 1 && rel[1] == ':') {
+		return "", fmt.Errorf("invalid relative path")
+	}
+	parts := strings.Split(rel, "/")
+	cleanParts := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if "" == part || "." == part {
+			continue
+		}
+		if ".." == part {
+			return "", fmt.Errorf("path traversal is not allowed")
+		}
+		// 剔除路径分隔与控制字符，避免异常文件名
+		if strings.ContainsAny(part, `\:*?"<>|`) {
+			return "", fmt.Errorf("invalid path segment")
+		}
+		cleanParts = append(cleanParts, part)
+	}
+	if 1 > len(cleanParts) {
+		return "", fmt.Errorf("empty relative path")
+	}
+	return strings.Join(cleanParts, "/"), nil
 }
