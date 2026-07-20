@@ -67,17 +67,26 @@ export GOPROXY=https://mirrors.aliyun.com/goproxy/,https://goproxy.cn,direct
 export CGO_ENABLED=1
 export GOOS=darwin
 
+# 从 app/package.json 读取版本号，构建时注入 util.Ver（与 Electron UI 版本保持一致）
+SIYUAN_VERSION="$(node -p "require('$PROJECT_ROOT/app/package.json').version")"
+if [[ -z "$SIYUAN_VERSION" ]]; then
+    echo 'Error: failed to read version from app/package.json'
+    exit 1
+fi
+echo "Kernel version from package.json: $SIYUAN_VERSION"
+KERNEL_LDFLAGS="-s -w -X github.com/siyuan-note/siyuan/kernel/util.Ver=${SIYUAN_VERSION}"
+
 if [[ "$TARGET" == 'amd64' || "$TARGET" == 'all' ]]; then
     echo
     echo 'Building Kernel amd64'
     export GOARCH=amd64
-    go build -tags "fts5 sqlcipher" -o "../app/kernel-darwin/SiYuan-Kernel" -ldflags "-s -w" .
+    go build -tags "fts5 sqlcipher" -o "../app/kernel-darwin/SiYuan-Kernel" -ldflags "$KERNEL_LDFLAGS" .
 fi
 if [[ "$TARGET" == 'arm64' || "$TARGET" == 'all' ]]; then
     echo
     echo 'Building Kernel arm64'
     export GOARCH=arm64
-    go build -tags "fts5 sqlcipher" -o "../app/kernel-darwin-arm64/SiYuan-Kernel" -ldflags "-s -w" .
+    go build -tags "fts5 sqlcipher" -o "../app/kernel-darwin-arm64/SiYuan-Kernel" -ldflags "$KERNEL_LDFLAGS" .
 fi
 
 echo

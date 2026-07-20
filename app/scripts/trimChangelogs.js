@@ -2,7 +2,7 @@ const fsPromises = require("fs").promises;
 const path = require("path");
 
 // 裁剪 changelog，只保留顶层 changelogs/v{version}/；预发布版删除整个 changelogs 目录。
-// 版本号须与 package.json、kernel/util/working.go 的 Ver 一致（内核按此路径读取）。
+// 版本号须与 package.json 一致；正式构建时内核 util.Ver 由 -ldflags 从 package.json 注入。
 async function trimChangelogs(changelogsDir, version) {
   let exists = true;
   try {

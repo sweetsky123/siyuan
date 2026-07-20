@@ -24,5 +24,13 @@ export GOARCH=arm64
 export CGO_CFLAGS="-I${LOG_ADAPTOR_HOME}/include -g -O2 `$LLVMCONFIG --cflags` --target=aarch64-linux-ohos --sysroot=$OHOS_NDK_HOME/native/sysroot"
 export CGO_LDFLAGS="--target=aarch64-linux-ohos -fuse-ld=lld -L${LOG_ADAPTOR_HOME}/dist/arm64-v8a"
 
-go build -tags fts5 -ldflags "-s -w" -buildmode=c-shared -o libkernel.so .
+# 从 app/package.json 读取版本号，构建时注入 util.Ver
+SIYUAN_VERSION="$(node -p "require('../../app/package.json').version")"
+if [[ -z "$SIYUAN_VERSION" ]]; then
+    echo 'Error: failed to read version from app/package.json'
+    exit 1
+fi
+echo "Kernel version from package.json: $SIYUAN_VERSION"
+
+go build -tags fts5 -ldflags "-s -w -X github.com/siyuan-note/siyuan/kernel/util.Ver=${SIYUAN_VERSION}" -buildmode=c-shared -o libkernel.so .
 #go build -tags fts5 -buildmode=c-shared -o libkernel.so .

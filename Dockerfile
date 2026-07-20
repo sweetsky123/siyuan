@@ -38,8 +38,22 @@ RUN --mount=type=cache,target=/root/.cache/go-build --mount=type=cache,target=/g
     go mod download
 
 ADD kernel/ .
-RUN --mount=type=cache,target=/root/.cache/go-build --mount=type=cache,target=/go/pkg \
-    go build -tags fts5 -ldflags "-s -w"
+# Ver 从 app/package.json 注入，与 UI 版本保持一致（可用 --build-arg SIYUAN_VERSION 覆盖）
+ARG SIYUAN_VERSION=
+COPY app/package.json /tmp/package.json
+RUN --mount=type=cache,target=/root/.cache/go-build --mount=type=cache,target=/go/pkg <<EORUN
+#!/bin/sh -e
+VERSION="${SIYUAN_VERSION}"
+if [ -z "$VERSION" ]; then
+  VERSION=$(sed -n 's/^[[:space:]]*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' /tmp/package.json | head -n 1)
+fi
+if [ -z "$VERSION" ]; then
+  echo "Error: failed to read version from app/package.json"
+  exit 1
+fi
+echo "Kernel version from package.json: ${VERSION}"
+go build -tags fts5 -ldflags "-s -w -X github.com/siyuan-note/siyuan/kernel/util.Ver=${VERSION}"
+EORUN
 
 FROM alpine:latest
 LABEL maintainer="Liang Ding<845765@qq.com>"

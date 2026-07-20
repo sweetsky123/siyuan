@@ -101,6 +101,17 @@ set GOPROXY=https://mirrors.aliyun.com/goproxy/,https://goproxy.cn,direct
 set CGO_ENABLED=1
 set GOOS=windows
 
+@REM 从 app/package.json 读取版本号，构建时注入 util.Ver（与 Electron UI 版本保持一致）
+pushd "%PROJECT_ROOT%"
+for /f "usebackq delims=" %%V in (`node -p "require('./app/package.json').version"`) do set "SIYUAN_VERSION=%%V"
+popd
+if not defined SIYUAN_VERSION (
+    echo Error: failed to read version from app/package.json
+    exit /b 1
+)
+echo Kernel version from package.json: %SIYUAN_VERSION%
+set "KERNEL_LDFLAGS=-s -w -X github.com/siyuan-note/siyuan/kernel/util.Ver=%SIYUAN_VERSION%"
+
 @REM you can use `go mod tidy` to update kernel dependency before build
 @REM you can use `go generate` instead (need add something in main.go)
 goversioninfo -platform-specific=true -icon=resource/icon.ico -manifest=resource/goversioninfo.exe.manifest
@@ -109,7 +120,7 @@ if defined BUILD_AMD64 (
     echo.
     echo Building Kernel amd64
     set GOARCH=amd64
-    go build -tags "fts5 sqlcipher" -o "%PROJECT_ROOT%\app\kernel\SiYuan-Kernel.exe" -ldflags "-s -w" .
+    go build -tags "fts5 sqlcipher" -o "%PROJECT_ROOT%\app\kernel\SiYuan-Kernel.exe" -ldflags "%KERNEL_LDFLAGS%" .
     if errorlevel 1 (
         exit /b %errorlevel%
     )
@@ -120,7 +131,7 @@ if defined BUILD_ARM64 (
     set GOARCH=arm64
     @REM if you want to build arm64, you need to install aarch64-w64-mingw32-gcc
     set CC="D:/Program Files/llvm-mingw-20240518-ucrt-x86_64/bin/aarch64-w64-mingw32-gcc.exe"
-    go build -tags "fts5 sqlcipher" -o "%PROJECT_ROOT%\app\kernel-arm64\SiYuan-Kernel.exe" -ldflags "-s -w" .
+    go build -tags "fts5 sqlcipher" -o "%PROJECT_ROOT%\app\kernel-arm64\SiYuan-Kernel.exe" -ldflags "%KERNEL_LDFLAGS%" .
     if errorlevel 1 (
         exit /b %errorlevel%
     )

@@ -44,8 +44,10 @@ import (
 // var Mode = "dev"
 var Mode = "prod"
 
+// Ver 由构建时 -ldflags -X 从 app/package.json 的 version 注入；源码默认值仅用于本地开发构建。
+var Ver = "3.7.2"
+
 const (
-	Ver       = "3.7.2"
 	IsInsider = false
 )
 
