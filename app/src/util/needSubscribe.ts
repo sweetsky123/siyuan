@@ -1,4 +1,4 @@
-export const needSubscribe = (_tip = window.siyuan.languages._kernel[29]) => {
+export const needSubscribe = () => {
     return false;
 };
 

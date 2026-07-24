@@ -758,7 +758,7 @@ export const genImportMenu = (notebookId: string, pathString: string) => {
         const accept = isDoc ? ".md,.markdown,text/markdown" : undefined;
         const inputAttrs = isDoc
             ? `type="file" accept="${accept}"`
-            : `type="file" multiple webkitdirectory directory`;
+            : "type=\"file\" multiple webkitdirectory directory";
         return {
             id: isDoc ? "importMarkdownDoc" : "importMarkdownFolder",
             icon: isDoc ? "iconMarkdown" : "iconFolder",
@@ -845,10 +845,10 @@ export const genImportMenu = (notebookId: string, pathString: string) => {
             },
             /// #if !BROWSER
             importstdmd("Markdown " + window.siyuan.languages.doc, true),
-            importstdmd("Markdown " + window.siyuan.languages.folder)
+            importstdmd("Markdown " + window.siyuan.languages.folder),
             /// #else
             importBrowserMd(true),
-            importBrowserMd(false)
+            importBrowserMd(false),
             /// #endif
         ],
     }).element);
