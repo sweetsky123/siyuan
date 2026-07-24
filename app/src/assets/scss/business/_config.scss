@@ -183,6 +183,31 @@
         opacity: 1;
       }
     }
+
+    // 桌面端新布局：删除按钮左侧垂直居中跨两行，右侧 Name/Value 上下排列
+    @media (min-width: 769px) {
+      &__row {
+        grid-template-columns: 28px 1fr;
+        grid-template-rows: auto auto;
+        gap: 6px 8px;
+
+        > .block__icon {
+          grid-row: 1 / 3;
+          align-self: center;
+        }
+      }
+
+      // 每个请求头组之间增加间距
+      &__rows {
+        gap: 12px;
+      }
+
+      // 添加按钮靠右对齐
+      &__body > [data-action="addSyncHeader"] {
+        display: block;
+        margin-left: auto;
+      }
+    }
   }
 
   // 同步操作按钮：三按钮各占一行、居中对齐
@@ -568,16 +593,24 @@
   }
 
   .layout-tab-bar {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     flex-shrink: 0;
     min-width: 0;
     width: 100%;
     box-sizing: border-box;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
 
     .item--full {
-      flex: 1 1 calc(33.333% - 8px);
+      flex: 0 0 auto;
       min-width: 0;
-      margin: 4px;
+      margin: 2px 4px;
+      white-space: nowrap;
     }
   }
 
@@ -590,12 +623,19 @@
   }
 
   .config-bazaar__title {
-    flex-wrap: wrap;
-    gap: 8px;
+    flex-wrap: nowrap;
+    gap: 6px;
     min-width: 0;
     width: 100%;
     padding: 8px 12px;
     box-sizing: border-box;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
 
     > .fn__space,
     > .fn__flex-1 {
@@ -603,11 +643,10 @@
     }
 
     > .b3-button {
-      flex: 1 1 calc(33.333% - 8px);
+      flex: 0 0 auto;
       min-width: 0;
       min-height: 28px;
-      white-space: normal;
-      overflow-wrap: anywhere;
+      white-space: nowrap;
     }
 
     .b3-text-field {
@@ -630,9 +669,25 @@
     margin: 1px 8px;
     overflow-x: hidden;
 
+    // 移动端确保卡片网格间距，覆盖 b3-cards 默认 gap
+    &.b3-cards {
+      gap: 12px;
+      grid-template-columns: 1fr;
+
+      .b3-card {
+        margin-bottom: 0;
+      }
+    }
+
     .b3-card {
       min-width: 0;
       max-width: 100%;
+      // 卡片间兜底间距（当 b3-cards 未正确应用时）
+      margin-bottom: 12px;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
 
       > .fn__flex-1,
       .b3-card__info {
@@ -659,9 +714,26 @@
   }
 
   .config-bazaar__readme {
+    // 移动端详情页：保持绝对定位，用 left:0 代替 PC 端 right:-100% 滑入效果
+    position: absolute;
+    left: 0;
+    right: auto;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    transform: none;
+    opacity: 0;
+    pointer-events: none;
     padding: 12px 0;
     flex-direction: column;
-    overflow: auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    &--show {
+      transform: none;
+      opacity: 1;
+      pointer-events: auto;
+    }
 
     .item__side {
       width: 100%;
