@@ -6,6 +6,7 @@
   "homepage": "https://b3log.org/siyuan",
   "main": "./electron/main.js",
   "packageManager": "pnpm@11.12.0",
+  "mobile-market": true,
   "scripts": {
     "lint": "eslint . --fix --cache",
     "test": "node --import tsx --test",

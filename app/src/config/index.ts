@@ -1,5 +1,13 @@
 /// #if MOBILE
 import {popMenu} from "../mobile/menu";
+/// #if MOBILE_MARKET
+import {openModel} from "../mobile/menu/model";
+import {bindSettingSaveDelegation} from "./setting/save";
+import {bazaar, mountBazaarTab, renderReadme} from "./bazaar";
+import {fetchSyncPost} from "../util/fetch";
+import {getFrontend} from "../util/functions";
+import {showMessage} from "../dialog/message";
+/// #endif
 /// #else
 import {initSettingSearch, switchSettingTab} from "./search/dialog";
 import {bindSettingSaveDelegation} from "./setting/save";
@@ -85,10 +93,31 @@ export const openSetting = (app: App, tab?: TSettingTab) => {
     /// #endif
 };
 
+/** 移动端以全屏 model 打开集市面板 */
+/// #if MOBILE && MOBILE_MARKET
+const openMobileBazaarModel = (app: App, afterMount?: () => void) => {
+    openModel({
+        title: window.siyuan.languages.bazaar,
+        icon: "iconBazaar",
+        html: `<div class="config config--mobile" style="height:100%;min-height:0"></div>`,
+        bindEvent(modelMainElement: HTMLElement) {
+            const root = modelMainElement.firstElementChild as HTMLElement;
+            bindSettingSaveDelegation(root);
+            mountBazaarTab(root, undefined, app);
+            afterMount?.();
+        }
+    });
+};
+/// #endif
+
 export const openBazaarReadme = async (app: App, bazaarType: TBazaarType, itemName: string, from: "bazaar" | "downloaded") => {
-    /// #if !MOBILE
+    /// #if !MOBILE || MOBILE_MARKET
     if (!window.siyuan.config.bazaar.trust) {
+        /// #if MOBILE
+        openMobileBazaarModel(app);
+        /// #else
         openSettingDialog(app, "bazaar");
+        /// #endif
         return;
     }
 
@@ -127,8 +156,15 @@ export const openBazaarReadme = async (app: App, bazaarType: TBazaarType, itemNa
         return;
     }
 
+    /// #if MOBILE
+    openMobileBazaarModel(app, () => {
+        bazaar.switchBazaarTab(app, bazaarType, from);
+        renderReadme(bazaarType, from, resource);
+    });
+    /// #else
     openSettingDialog(app, "bazaar");
     bazaar.switchBazaarTab(app, bazaarType, from);
     renderReadme(bazaarType, from, resource);
+    /// #endif
     /// #endif
 };

@@ -7,6 +7,9 @@ const {CleanWebpackPlugin} = require("clean-webpack-plugin");
 // const BundleAnalyzerPlugin = require("webpack-bundle-analyzer").BundleAnalyzerPlugin;
 const {EsbuildPlugin} = require("esbuild-loader");
 
+// 移动端是否编译集市：package.json 的 "mobile-market" 为 true/"true" 时开启；缺省或 false 时剔除相关代码
+const mobileMarket = pkg["mobile-market"] === true || pkg["mobile-market"] === "true";
+
 module.exports = (env, argv) => {
     return {
         mode: argv.mode || "development",
@@ -64,6 +67,7 @@ module.exports = (env, argv) => {
                                 "ifdef-verbose": false,
                                 BROWSER: true,
                                 MOBILE: true,
+                                MOBILE_MARKET: mobileMarket,
                             },
                         },
                     ],
