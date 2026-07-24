@@ -64,6 +64,8 @@ const genBilingualLabel = (primary: string, secondary: string) => `<span class="
 
 // 指定 TCP 连接端口说明：仅改拨号端口，适用于端口转发后端口不一致
 const SYNC_CONNECT_PORT_TIP = "仅覆盖实际 TCP 连接端口，不影响 Endpoint、HTTP Host 与 S3 签名。适用于端口转发后连接端口与 Endpoint 端口不一致的场景；留空表示沿用 Endpoint 端口。";
+// S3 签名 Host 说明：用于签名计算，未设置则沿用 Endpoint 域名
+const SYNC_SIGN_HOST_TIP = "该值用于 S3 签名密钥计算，未设置则使用服务端点(Endpoint)中设置的域名进行签名计算。";
 
 type SyncProviderIntroDef = {
     genIntro: () => string;
@@ -152,7 +154,7 @@ const SYNC_PROVIDER_DEFS: Record<Config.ISync["provider"], SyncProviderDef> = {
                 {value: "true", label: "跳过验证(Skip)"},
             ]},
             {type: "input", label: genBilingualLabel("并发请求数", "Concurrent Reqs"), id: "concurrentReqs", attrs: 'inputmode="numeric" data-number="true"'},
-            {type: "input", label: genBilingualLabel("S3 签名 Host", "可选"), id: "signHost"},
+            {type: "input", label: genBilingualLabel("S3 签名 Host", "可选"), id: "signHost", tip: SYNC_SIGN_HOST_TIP},
             {type: "input", label: genBilingualLabel("User-Agent 请求头", "可选"), id: "userAgent"},
             {type: "input", label: genBilingualLabel("Referer 请求头", "可选"), id: "referer"},
             {type: "headers", label: genBilingualLabel("自定义请求头", "Headers"), id: "headers"},
@@ -399,17 +401,15 @@ const genSyncHeaderRow = (header: Config.ISyncHeader = {name: "", value: ""}) =>
 </div>`;
 
 const genProviderActionButtons = (dataType: SyncProviderConfigKey) => {
-    const importExportHtml = dataType === "s3" || dataType === "webdav" ? `<div class="fn__space"></div>
+    const importExportHtml = dataType === "s3" || dataType === "webdav" ? `
     <button class="b3-button b3-button--outline fn__size200" style="position: relative">
         <input id="importSyncConfig" class="b3-form__upload" type="file" data-type="${dataType}">
         <svg><use xlink:href="#iconDownload"></use></svg>${window.siyuan.languages.import}
     </button>
-    <div class="fn__space"></div>
     <button class="b3-button b3-button--outline fn__size200" id="exportSyncConfig" data-type="${dataType}">
         <svg><use xlink:href="#iconUpload"></use></svg>${window.siyuan.languages.export}
     </button>` : "";
-    return `<div class="b3-label b3-label--inner fn__flex fn__flex-wrap">
-    <div class="fn__flex-1"></div>
+    return `<div class="b3-label b3-label--inner config-sync-actions">
     <button class="b3-button b3-button--outline fn__size200" id="purgeCloudData">
         <svg><use xlink:href="#iconTrashcan"></use></svg>${window.siyuan.languages.cloudStoragePurge}
     </button>${importExportHtml}
@@ -480,17 +480,21 @@ const bindProviderConfigEvent = (configElement: Element, root: Element) => {
             return;
         }
         const actionElement = target.closest<HTMLElement>("[data-action]");
-        if (!actionElement) {
+        if (!actionElement || !configElement.contains(actionElement)) {
             return;
         }
+        event.stopPropagation();
         if (actionElement.dataset.action === "addSyncHeader") {
             const rowsElement = configElement.querySelector('[data-role="syncHeaderRows"]');
             rowsElement?.insertAdjacentHTML("beforeend", genSyncHeaderRow());
             return;
         }
         if (actionElement.dataset.action === "removeSyncHeader") {
-            actionElement.closest('[data-role="syncHeaderRow"]')?.remove();
-            saveSyncProviderConfigValues(configElement);
+            const row = actionElement.closest<HTMLElement>('[data-role="syncHeaderRow"]');
+            if (row && configElement.contains(row)) {
+                row.remove();
+                saveSyncProviderConfigValues(configElement);
+            }
             return;
         }
         if (actionElement.dataset.action === "insertSyncPlaceholder") {
@@ -628,7 +632,7 @@ const readProviderConfigFields = <T extends object>(configElement: Element, temp
                 name: row.querySelector<HTMLInputElement>('[data-name="name"]')?.value || "",
                 value: row.querySelector<HTMLInputElement>('[data-name="value"]')?.value || "",
             };
-        }).filter((header) => header.name.trim() || header.value);
+        }).filter((header) => header.name.trim() || header.value.trim());
     }
     return result as T;
 };

@@ -99,7 +99,7 @@ const openMobileBazaarModel = (app: App, afterMount?: () => void) => {
     openModel({
         title: window.siyuan.languages.bazaar,
         icon: "iconBazaar",
-        html: `<div class="config config--mobile config--mobile-bazaar" style="height:100%;min-height:0"></div>`,
+        html: "<div class=\"config config--mobile config--mobile-bazaar\" style=\"height:100%;min-height:0\"></div>",
         bindEvent(modelMainElement: HTMLElement) {
             const root = modelMainElement.firstElementChild as HTMLElement;
             bindSettingSaveDelegation(root);

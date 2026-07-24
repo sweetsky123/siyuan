@@ -92,6 +92,19 @@
 
       &__row {
         grid-template-columns: 1fr;
+
+        > .block__icon {
+          width: 28px;
+          height: 28px;
+          justify-self: end;
+        }
+      }
+    }
+
+    &-sync-actions {
+      .fn__size200 {
+        width: 100%;
+        max-width: 200px;
       }
     }
 
