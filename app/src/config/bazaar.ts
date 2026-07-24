@@ -2,14 +2,12 @@ import {showMessage} from "../dialog/message";
 import {fetchPost} from "../util/fetch";
 import {confirmDialog} from "../dialog/confirmDialog";
 import {highlightRender} from "../protyle/render/highlightRender";
-/// #if !MOBILE
 import {saveLayout} from "../layout/util";
-/// #endif
 import {Constants} from "../constants";
 /// #if !BROWSER
 import * as path from "path";
 /// #endif
-import {getFrontend, isBrowser, isMobile} from "../util/functions";
+import {getFrontend, isBrowser} from "../util/functions";
 import {setStorageVal, writeText} from "../protyle/util/compatibility";
 import {hasClosestByAttribute, hasClosestByClassName} from "../protyle/util/hasClosest";
 import {Plugin} from "../plugin";
@@ -67,8 +65,7 @@ export const bazaar = {
     element: undefined as Element,
     genHTML() {
         if (!window.siyuan.config.bazaar.trust) {
-            const trustMargin = isMobile() ? "0 16px" : "0 48px";
-            return `<div class="fn__flex-column" style="margin: ${trustMargin};">
+            return `<div class="fn__flex-column" style="margin: 0 48px;">
 <div class="fn__flex-1"></div>
 <div class="b3-label">
     <div>${window.siyuan.languages.bazaarTrust}</div>
@@ -1031,12 +1028,7 @@ type="checkbox">
                                         afterLoadPlugin(item);
                                     });
                                 });
-                                // 桌面端才有 dock/布局；移动端无 #barDock，避免 saveLayout 空引用
-                                /// #if !MOBILE
-                                if (!isMobile()) {
-                                    saveLayout();
-                                }
-                                /// #endif
+                                saveLayout();
                             }
                         });
                     }

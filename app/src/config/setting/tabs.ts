@@ -9,14 +9,13 @@ import {appearanceConfigApi} from "../tabs/appearanceRuntime";
 import {mountSyncTabExtras, patchSyncConfig} from "../tabs/syncRuntime";
 import {mountAccessTab} from "../tabs/accessRuntime";
 import {collectAssetsTabSearchStrings, mountAssetsTab} from "../assets";
-/// #if !MOBILE || MOBILE_MARKET
-import {collectBazaarTabSearchStrings, mountBazaarTab} from "../bazaar";
-/// #endif
 /// #if !MOBILE
+import {collectBazaarTabSearchStrings, mountBazaarTab} from "../bazaar";
 import {collectKeymapTabSearchStrings, mountKeymapTab} from "../tabs/keymapUi";
 /// #endif
+import {isHuawei, isInHarmony} from "../../protyle/util/compatibility";
 /// #if MOBILE
-import {isHuawei, isDisabledFeature} from "../../protyle/util/compatibility";
+import {isDisabledFeature} from "../../protyle/util/compatibility";
 /// #endif
 import {SettingBuilder, type SettingTab} from "./builder";
 import {registerEditorTab} from "../tabs/editorTab";
@@ -52,11 +51,12 @@ const settingTabs = {
         title: () => window.siyuan.languages.appearance,
         defaultSave: appearanceConfigApi.patch,
     }, registerAppearanceTab),
-    /// #if !MOBILE || MOBILE_MARKET
+    /// #if !MOBILE
     bazaar: setting.panel({
         id: "bazaar",
         icon: "iconBazaar",
         title: () => window.siyuan.languages.bazaar,
+        hidden: () => !!(isHuawei() || isInHarmony()),
         searchStrings: collectBazaarTabSearchStrings,
         mount: mountBazaarTab,
     }),

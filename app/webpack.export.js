@@ -56,7 +56,6 @@ module.exports = (env, argv) => {
                                 "ifdef-verbose": false,
                                 BROWSER: true,
                                 MOBILE: true,
-                                MOBILE_MARKET: false,
                             },
                         },
                     ],
