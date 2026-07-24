@@ -25,7 +25,7 @@ jobs:
 
     steps:
       - name: 检查代码和子模块
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.ref }}
           submodules: recursive

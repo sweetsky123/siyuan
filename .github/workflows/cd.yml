@@ -26,7 +26,7 @@ jobs:
       make_latest: ${{ steps.release_flags.outputs.make_latest }}
     steps:
       - name: 检查代码
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: 读取版本号
         id: version
@@ -136,7 +136,7 @@ jobs:
 
     steps:
       - name: 检查代码
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}
 
@@ -149,7 +149,7 @@ jobs:
           install: ${{ matrix.config.goarch == 'arm64' && 'p7zip mingw-w64-clang-aarch64-toolchain mingw-w64-clang-aarch64-lua' || 'p7zip mingw-w64-x86_64-toolchain mingw-w64-x86_64-lua' }}
 
       - name: 安装 Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version-file: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/kernel/go.mod
           cache-dependency-path: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/kernel/go.sum
@@ -165,7 +165,7 @@ jobs:
           GOPATH: ${{ github.workspace }}/go
 
       - name: 安装 Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 24
 
@@ -174,7 +174,7 @@ jobs:
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app
 
       - name: 缓存 pnpm store
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.pnpm-store
           key: pnpm-${{ runner.os }}-${{ hashFiles('app/pnpm-lock.yaml') }}
@@ -335,7 +335,7 @@ jobs:
     needs: prepare
     steps:
       - name: 检查代码
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}
 
@@ -382,7 +382,7 @@ jobs:
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}
 
       - name: 安装 JDK
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "21"
@@ -423,7 +423,7 @@ jobs:
           JAVA_TOOL_OPTIONS: -Dfile.encoding=UTF-8
 
       - name: 检出 siyuan-android
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: sweetsky123/siyuan-android
           ref: main
