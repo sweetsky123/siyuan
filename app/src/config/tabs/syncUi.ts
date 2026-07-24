@@ -62,7 +62,7 @@ type SyncProviderFieldDef =
 // 宽屏（标签与输入同行）时中英分两行；窄屏叠排时由 CSS 收成一行，如 服务端点(Endpoint)
 const genBilingualLabel = (primary: string, secondary: string) => `<span class="config-provider-label"><span>${primary}</span><span>(${secondary})</span></span>`;
 
-// 指定连接端口说明：仅改拨号端口，适用于端口转发后端口不一致
+// 指定 TCP 连接端口说明：仅改拨号端口，适用于端口转发后端口不一致
 const SYNC_CONNECT_PORT_TIP = "仅覆盖实际 TCP 连接端口，不影响 Endpoint、HTTP Host 与 S3 签名。适用于端口转发后连接端口与 Endpoint 端口不一致的场景；留空表示沿用 Endpoint 端口。";
 
 type SyncProviderIntroDef = {
@@ -162,7 +162,7 @@ const SYNC_PROVIDER_DEFS: Record<Config.ISync["provider"], SyncProviderDef> = {
                 {value: "CNAME", label: "CNAME"},
             ]},
             {type: "input", label: genBilingualLabel("DNS 解析记录值", "IP / CNAME"), id: "dnsRecordValue"},
-            {type: "input", label: genBilingualLabel("指定连接端口", "Connect Port"), id: "connectPort", attrs: 'inputmode="numeric" data-number="true"', tip: SYNC_CONNECT_PORT_TIP},
+            {type: "input", label: genBilingualLabel("指定 TCP 连接端口", "Connect Port"), id: "connectPort", attrs: 'inputmode="numeric" data-number="true"', tip: SYNC_CONNECT_PORT_TIP},
         ],
     },
     3: {
@@ -195,7 +195,7 @@ const SYNC_PROVIDER_DEFS: Record<Config.ISync["provider"], SyncProviderDef> = {
                 {value: "CNAME", label: "CNAME"},
             ]},
             {type: "input", label: genBilingualLabel("DNS 解析记录值", "IP / CNAME"), id: "dnsRecordValue"},
-            {type: "input", label: genBilingualLabel("指定连接端口", "Connect Port"), id: "connectPort", attrs: 'inputmode="numeric" data-number="true"', tip: SYNC_CONNECT_PORT_TIP},
+            {type: "input", label: genBilingualLabel("指定 TCP 连接端口", "Connect Port"), id: "connectPort", attrs: 'inputmode="numeric" data-number="true"', tip: SYNC_CONNECT_PORT_TIP},
         ],
     },
     4: {
@@ -287,7 +287,7 @@ const buildProviderConfigKeywords = (): string[] => {
         "自定义请求头",
         "DNS 解析记录类型",
         "DNS 解析记录值",
-        "指定连接端口",
+        "指定 TCP 连接端口",
         "用户名",
         "密码",
     ];
@@ -609,7 +609,7 @@ const readProviderConfigFields = <T extends object>(configElement: Element, temp
             result[key] = el.value;
         }
     });
-    // 兼容旧配置对象尚无 connectPort 字段时，仍从表单读取指定连接端口
+    // 兼容旧配置对象尚无 connectPort 字段时，仍从表单读取指定 TCP 连接端口
     if (!("connectPort" in result)) {
         const connectPortEl = configElement.querySelector("#connectPort") as HTMLInputElement | null;
         if (connectPortEl) {
