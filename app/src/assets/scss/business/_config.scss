@@ -630,12 +630,6 @@
     margin: 1px 8px;
     overflow-x: hidden;
 
-    > .b3-cards {
-      min-width: 0;
-      width: 100%;
-      max-width: 100%;
-    }
-
     .b3-card {
       min-width: 0;
       max-width: 100%;
@@ -646,15 +640,20 @@
       }
     }
 
-    .b3-cards--nowrap .b3-card {
+    // 已下载 / 集市卡片的操作栏在窄屏换行
+    .b3-card {
       flex-wrap: wrap;
 
+      > .b3-card__actions,
       > .b3-card__actions--right {
         flex: 1 0 100%;
         min-width: 0;
-        justify-content: flex-end;
         flex-wrap: wrap;
         padding: 0 11px 11px;
+      }
+
+      > .b3-card__actions--right {
+        justify-content: flex-end;
       }
     }
   }

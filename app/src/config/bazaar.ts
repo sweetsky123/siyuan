@@ -1219,7 +1219,10 @@ type="checkbox">
             htmlParts.push(bazaar._genCardHTML(item, bazaarType));
         }
         const html = htmlParts.join("");
-        container.innerHTML = `<div class="b3-cards${html ? "" : " b3-cards--nowrap"}">${html || `<ul class="b3-list b3-list--background"><li class="b3-list--empty">${window.siyuan.languages.emptyContent}</li></ul>`}</div>`;
+        // 移动端不嵌套额外 b3-cards 包装，与已下载列表保持一致的单层结构
+        container.classList.add("b3-cards");
+        container.classList.toggle("b3-cards--nowrap", !html);
+        container.innerHTML = html || `<ul class="b3-list b3-list--background"><li class="b3-list--empty">${window.siyuan.languages.emptyContent}</li></ul>`;
         container.parentElement.querySelector(".counter").textContent = htmlParts.length.toString();
     },
     _onBazaar(response: IWebSocketData, bazaarType: TBazaarType) {
