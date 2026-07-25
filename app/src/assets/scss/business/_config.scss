@@ -746,6 +746,7 @@
 
     // 移动端确保卡片网格间距，覆盖 b3-cards 默认 gap
     &.b3-cards {
+      display: grid;
       gap: 12px;
       grid-template-columns: 1fr;
 
@@ -764,6 +765,8 @@
       border-radius: var(--b3-border-radius);
       box-shadow: var(--b3-point-shadow) inset;
       transition: var(--b3-background-transition);
+      position: relative;
+      cursor: pointer;
       padding: 12px;
       margin-bottom: 12px;
 
@@ -817,9 +820,23 @@
 
       .b3-card__actions,
       .b3-card__actions--right {
+        display: flex;
+        box-sizing: border-box;
+        font-size: 12px;
+        line-height: 14px;
+        align-items: center;
         min-width: 0;
         flex-wrap: wrap;
         padding: 8px 0 0;
+      }
+
+      .b3-card__actions:not(.b3-card__actions--right) .block__icon svg {
+        height: 12px;
+        width: 12px;
+      }
+
+      .b3-card__actions--right .block__icon {
+        margin-left: 8px;
       }
 
       > .b3-card__actions,
