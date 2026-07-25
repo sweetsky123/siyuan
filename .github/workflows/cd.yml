@@ -329,10 +329,22 @@ jobs:
 
   build_android:
     runs-on: ubuntu-latest
-    name: ubuntu 编译 android.apk
+    name: ubuntu 编译 android.${{ matrix.config.build_type }}.apk
     # Android and desktop builds run in parallel, both depend on prepare.
     # create_release aggregates all artifacts once both jobs succeed.
     needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - build_type: release
+            gradle_task: assembleOfficialRelease
+            output_dir: official/release
+            artifact_name: siyuan-android
+          - build_type: debug
+            gradle_task: assembleOfficialDebug
+            output_dir: official/debug
+            artifact_name: siyuan-android-debug
     steps:
       - name: 检查代码
         uses: actions/checkout@v6
@@ -500,8 +512,8 @@ jobs:
         run: |
           echo "sdk.dir=$ANDROID_HOME" > local.properties
           chmod +x ./gradlew
-          ./gradlew assembleOfficialRelease -PsiyuanVersionName=${{ needs.prepare.outputs.version }}
-          cd app/build/outputs/apk/official/release
+          ./gradlew ${{ matrix.config.gradle_task }} -PsiyuanVersionName=${{ needs.prepare.outputs.version }}
+          cd app/build/outputs/apk/${{ matrix.config.output_dir }}
           for apk in *.apk; do
             case "$apk" in
               *armeabi-v7a*) target="armeabi-v7a" ;;
@@ -511,15 +523,19 @@ jobs:
               *universal*) target="universal" ;;
               *) target="universal" ;;
             esac
-            mv "$apk" "siyuan-${{ needs.prepare.outputs.version }}-android-${target}.apk"
+            if [ "${{ matrix.config.build_type }}" = "debug" ]; then
+              mv "$apk" "siyuan-${{ needs.prepare.outputs.version }}-android-debug-${target}.apk"
+            else
+              mv "$apk" "siyuan-${{ needs.prepare.outputs.version }}-android-${target}.apk"
+            fi
           done
         working-directory: ${{ github.workspace }}/siyuan-android
 
       - name: 上传 Android 构建产物
         uses: actions/upload-artifact@v7
         with:
-          name: siyuan-android
-          path: ${{ github.workspace }}/siyuan-android/app/build/outputs/apk/official/release/siyuan-${{ needs.prepare.outputs.version }}-android-*.apk
+          name: ${{ matrix.config.artifact_name }}
+          path: ${{ github.workspace }}/siyuan-android/app/build/outputs/apk/${{ matrix.config.output_dir }}/siyuan-${{ needs.prepare.outputs.version }}-android${{ matrix.config.build_type == 'debug' && '-debug' || '' }}-*.apk
           if-no-files-found: error
           retention-days: 1
 
