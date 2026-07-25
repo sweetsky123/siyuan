@@ -609,8 +609,9 @@
     .item--full {
       flex: 0 0 auto;
       min-width: 0;
-      margin: 2px 4px;
+      margin: 4px;
       white-space: nowrap;
+      touch-action: pan-x;
     }
   }
 
@@ -623,19 +624,15 @@
   }
 
   .config-bazaar__title {
-    flex-wrap: nowrap;
-    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
     min-width: 0;
     width: 100%;
     padding: 8px 12px;
     box-sizing: border-box;
-    overflow-x: auto;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-
-    &::-webkit-scrollbar {
-      display: none;
-    }
+    overflow-x: hidden;
 
     > .fn__space,
     > .fn__flex-1 {
@@ -649,16 +646,94 @@
       white-space: nowrap;
     }
 
+    > .svg {
+      flex: 0 0 20px;
+    }
+
+    > .counter {
+      flex: 0 0 auto;
+      min-width: 28px;
+    }
+
     .b3-text-field {
-      flex: 1 1 100%;
+      flex: 1 1 160px;
       min-width: 0;
       max-width: 100%;
     }
 
     .b3-select {
-      flex: 1 1 calc(50% - 24px);
+      flex: 1 1 120px;
       min-width: 0;
       max-width: 100%;
+    }
+  }
+
+  .config-bazaar__panel[data-type="downloaded"] > .config-bazaar__title {
+    .b3-text-field,
+    .b3-switch,
+    .counter {
+      order: 1;
+    }
+
+    .b3-text-field {
+      flex: 1 1 calc(100% - 72px);
+    }
+
+    .b3-switch,
+    .counter {
+      flex: 0 0 auto;
+    }
+
+    > .b3-button {
+      order: 2;
+    }
+  }
+
+  .config-bazaar__panel[data-type="theme"] > .config-bazaar__title {
+    .b3-text-field,
+    .counter {
+      order: 1;
+    }
+
+    .b3-text-field {
+      flex: 1 1 0;
+    }
+
+    .counter {
+      flex: 0 0 auto;
+    }
+
+    > .svg,
+    .b3-select {
+      order: 2;
+    }
+
+    .b3-select {
+      flex: 1 1 calc(50% - 18px);
+    }
+  }
+
+  .config-bazaar__panel:not([data-type="downloaded"]):not([data-type="theme"]) > .config-bazaar__title {
+    > .svg,
+    .counter {
+      flex-shrink: 0;
+    }
+
+    .b3-text-field {
+      flex: 1 1 120px;
+    }
+
+    @media (max-width: 360px) {
+      .b3-text-field {
+        flex-basis: 100%;
+        order: 1;
+      }
+
+      > .svg,
+      .b3-select,
+      .counter {
+        order: 2;
+      }
     }
   }
 
@@ -680,13 +755,54 @@
     }
 
     .b3-card {
+      display: flex;
       min-width: 0;
       max-width: 100%;
-      // 卡片间兜底间距（当 b3-cards 未正确应用时）
+      box-sizing: border-box;
+      overflow: hidden;
+      background-color: var(--b3-theme-surface);
+      border-radius: var(--b3-border-radius);
+      box-shadow: var(--b3-point-shadow) inset;
+      transition: var(--b3-background-transition);
+      padding: 12px;
       margin-bottom: 12px;
+
+      &:hover {
+        background-color: var(--b3-list-hover);
+      }
 
       &:last-child {
         margin-bottom: 0;
+      }
+
+      .b3-card__img {
+        flex: 0 0 auto;
+        margin: 0;
+
+        img {
+          height: 74px;
+          object-fit: cover;
+          border-radius: var(--b3-border-radius);
+          width: 74px;
+        }
+      }
+
+      .b3-card__info {
+        padding: 0 0 0 12px;
+        line-height: 18px;
+
+        &--left {
+          padding-bottom: 0;
+          padding-right: 0;
+        }
+      }
+
+      .b3-card__desc {
+        color: var(--b3-theme-on-surface);
+        font-size: 12px;
+        margin-top: 8px;
+        max-height: 54px;
+        overflow: hidden;
       }
 
       > .fn__flex-1,
@@ -699,12 +815,16 @@
     .b3-card {
       flex-wrap: wrap;
 
+      .b3-card__actions,
+      .b3-card__actions--right {
+        min-width: 0;
+        flex-wrap: wrap;
+        padding: 8px 0 0;
+      }
+
       > .b3-card__actions,
       > .b3-card__actions--right {
         flex: 1 0 100%;
-        min-width: 0;
-        flex-wrap: wrap;
-        padding: 0 11px 11px;
       }
 
       > .b3-card__actions--right {
@@ -742,9 +862,16 @@
       overflow: visible;
       padding: 0 16px;
       box-sizing: border-box;
+      align-items: center;
+      text-align: center;
+
+      > .fn__flex {
+        width: 100%;
+      }
     }
 
     .item__main {
+      width: 100%;
       margin-left: 0;
       margin-top: 12px;
       padding: 0 16px 16px;
@@ -758,6 +885,7 @@
     }
 
     .item__preview {
+      width: 100%;
       height: 180px;
       margin-bottom: 16px;
     }
