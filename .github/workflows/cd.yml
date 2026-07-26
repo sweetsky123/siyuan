@@ -616,6 +616,11 @@ jobs:
             "siyuan-android/siyuan-${VERSION}-android-arm64-v8a.apk"
             "siyuan-android/siyuan-${VERSION}-android-x86.apk"
             "siyuan-android/siyuan-${VERSION}-android-x86_64.apk"
+            "siyuan-android-debug/siyuan-${VERSION}-android-debug-universal.apk"
+            "siyuan-android-debug/siyuan-${VERSION}-android-debug-armeabi-v7a.apk"
+            "siyuan-android-debug/siyuan-${VERSION}-android-debug-arm64-v8a.apk"
+            "siyuan-android-debug/siyuan-${VERSION}-android-debug-x86.apk"
+            "siyuan-android-debug/siyuan-${VERSION}-android-debug-x86_64.apk"
             "SHA256SUMS.txt"
           )
           missing=0
@@ -667,4 +672,9 @@ jobs:
             "siyuan-android/siyuan-${VERSION}-android-armeabi-v7a.apk#siyuan-${VERSION}-android-armeabi-v7a.apk" \
             "siyuan-android/siyuan-${VERSION}-android-arm64-v8a.apk#siyuan-${VERSION}-android-arm64-v8a.apk" \
             "siyuan-android/siyuan-${VERSION}-android-x86.apk#siyuan-${VERSION}-android-x86.apk" \
-            "siyuan-android/siyuan-${VERSION}-android-x86_64.apk#siyuan-${VERSION}-android-x86_64.apk"
+            "siyuan-android/siyuan-${VERSION}-android-x86_64.apk#siyuan-${VERSION}-android-x86_64.apk" \
+            "siyuan-android-debug/siyuan-${VERSION}-android-debug-universal.apk#siyuan-${VERSION}-android-debug-universal.apk" \
+            "siyuan-android-debug/siyuan-${VERSION}-android-debug-armeabi-v7a.apk#siyuan-${VERSION}-android-debug-armeabi-v7a.apk" \
+            "siyuan-android-debug/siyuan-${VERSION}-android-debug-arm64-v8a.apk#siyuan-${VERSION}-android-debug-arm64-v8a.apk" \
+            "siyuan-android-debug/siyuan-${VERSION}-android-debug-x86.apk#siyuan-${VERSION}-android-debug-x86.apk" \
+            "siyuan-android-debug/siyuan-${VERSION}-android-debug-x86_64.apk#siyuan-${VERSION}-android-debug-x86_64.apk"
