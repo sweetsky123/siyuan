@@ -587,13 +587,28 @@
   .config-bazaar__trust {
     height: 100%;
     min-height: 0;
+    min-width: 0;
+    max-width: 100%;
     overflow: auto;
     padding: 0 0 24px;
     box-sizing: border-box;
 
     .b3-label {
+      min-width: 0;
+      width: 100%;
+      max-width: 100%;
       padding-right: 0;
       padding-left: 0;
+      box-sizing: border-box;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+
+    > .fn__flex.b3-label > :not(.b3-label__icon) {
+      flex: 1 1 0;
+      min-width: 0;
+      white-space: normal;
+      overflow-wrap: anywhere;
     }
   }
 
