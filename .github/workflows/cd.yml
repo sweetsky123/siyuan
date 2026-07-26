@@ -77,7 +77,7 @@ jobs:
             echo "is_beta=false" >> $GITHUB_OUTPUT
           fi
 
-  build:
+  build_linux:
     runs-on: ${{ matrix.config.os }}
     name: ${{ matrix.config.name }}
     needs: [prepare]
@@ -92,6 +92,9 @@ jobs:
             build_args_suffix: "Mode=prod"
             electron_args: "dist-linux"
             goos: "linux"
+            cc: ""
+            gobin: ""
+            mingwsys: ""
             goarch: "amd64"
             suffix: "linux"
           - os: ubuntu-24.04
@@ -102,50 +105,10 @@ jobs:
             electron_args: "dist-linux-arm64"
             goos: "linux"
             cc: "aarch64-linux-gnu-gcc"
+            gobin: ""
+            mingwsys: ""
             goarch: "arm64"
             suffix: "linux-arm64"
-          - os: macos-latest
-            name: macos build mac.dmg
-            build_type: release
-            kernel_path: "../app/kernel-darwin/SiYuan-Kernel"
-            build_args_suffix: "Mode=prod"
-            electron_args: "dist-darwin"
-            goos: "darwin"
-            goarch: "amd64"
-            suffix: "mac.dmg"
-          - os: macos-latest
-            name: macos build mac-arm64.dmg
-            build_type: release
-            kernel_path: "../app/kernel-darwin-arm64/SiYuan-Kernel"
-            build_args_suffix: "Mode=prod"
-            electron_args: "dist-darwin-arm64"
-            goos: "darwin"
-            goarch: "arm64"
-            suffix: "mac-arm64.dmg"
-          - os: windows-latest
-            name: windows build win.exe
-            build_type: release
-            kernel_path: "../app/kernel/SiYuan-Kernel.exe"
-            build_args_suffix: "Mode=prod"
-            electron_args: "dist"
-            goos: "windows"
-            gobin: "bin"
-            mingwsys: "MINGW64"
-            goarch: "amd64"
-            suffix: "win.exe"
-          - os: windows-11-arm
-            name: windows build win-arm64.exe
-            build_type: release
-            kernel_path: "../app/kernel-arm64/SiYuan-Kernel.exe"
-            build_args_suffix: "Mode=prod"
-            electron_args: "dist-arm64"
-            goos: "windows"
-            gobin: "bin"
-            mingwsys: "CLANGARM64"
-            cc: "clang"
-            goarch: "arm64"
-            suffix: "win-arm64.exe"
-
     steps: &desktop_build_steps
       - name: 检查代码
         uses: actions/checkout@v6
@@ -389,7 +352,7 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  build_debug:
+  build_linux_debug:
     if: needs.prepare.outputs.is_beta == 'true'
     runs-on: ${{ matrix.config.os }}
     name: ${{ matrix.config.name }}
@@ -399,44 +362,144 @@ jobs:
       matrix:
         config:
           - os: ubuntu-24.04
-            name: ubuntu build debug linux
+            name: ubuntu build linux debug
             build_type: debug
             kernel_path: "../app/kernel-linux/SiYuan-Kernel"
             build_args_suffix: "Mode=prod"
             electron_args: "dist-linux"
             goos: "linux"
+            cc: ""
+            gobin: ""
+            mingwsys: ""
             goarch: "amd64"
             suffix: "linux"
           - os: ubuntu-24.04
-            name: ubuntu build debug linux-arm64
+            name: ubuntu build linux-arm64 debug
             build_type: debug
             kernel_path: "../app/kernel-linux-arm64/SiYuan-Kernel"
             build_args_suffix: "Mode=prod"
             electron_args: "dist-linux-arm64"
             goos: "linux"
             cc: "aarch64-linux-gnu-gcc"
+            gobin: ""
+            mingwsys: ""
             goarch: "arm64"
             suffix: "linux-arm64"
+    steps: *desktop_build_steps
+
+  build_macos:
+    runs-on: ${{ matrix.config.os }}
+    name: ${{ matrix.config.name }}
+    needs: [prepare]
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
           - os: macos-latest
-            name: macos build debug mac.dmg
+            name: macos build mac.dmg
+            build_type: release
+            kernel_path: "../app/kernel-darwin/SiYuan-Kernel"
+            build_args_suffix: "Mode=prod"
+            electron_args: "dist-darwin"
+            goos: "darwin"
+            cc: ""
+            gobin: ""
+            mingwsys: ""
+            goarch: "amd64"
+            suffix: "mac.dmg"
+          - os: macos-latest
+            name: macos build mac-arm64.dmg
+            build_type: release
+            kernel_path: "../app/kernel-darwin-arm64/SiYuan-Kernel"
+            build_args_suffix: "Mode=prod"
+            electron_args: "dist-darwin-arm64"
+            goos: "darwin"
+            cc: ""
+            gobin: ""
+            mingwsys: ""
+            goarch: "arm64"
+            suffix: "mac-arm64.dmg"
+    steps: *desktop_build_steps
+
+  build_macos_debug:
+    if: needs.prepare.outputs.is_beta == 'true'
+    runs-on: ${{ matrix.config.os }}
+    name: ${{ matrix.config.name }}
+    needs: [prepare]
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - os: macos-latest
+            name: macos build mac.dmg debug
             build_type: debug
             kernel_path: "../app/kernel-darwin/SiYuan-Kernel"
             build_args_suffix: "Mode=prod"
             electron_args: "dist-darwin"
             goos: "darwin"
+            cc: ""
+            gobin: ""
+            mingwsys: ""
             goarch: "amd64"
             suffix: "mac.dmg"
           - os: macos-latest
-            name: macos build debug mac-arm64.dmg
+            name: macos build mac-arm64.dmg debug
             build_type: debug
             kernel_path: "../app/kernel-darwin-arm64/SiYuan-Kernel"
             build_args_suffix: "Mode=prod"
             electron_args: "dist-darwin-arm64"
             goos: "darwin"
+            cc: ""
+            gobin: ""
+            mingwsys: ""
             goarch: "arm64"
             suffix: "mac-arm64.dmg"
+    steps: *desktop_build_steps
+
+  build_windows:
+    runs-on: ${{ matrix.config.os }}
+    name: ${{ matrix.config.name }}
+    needs: [prepare]
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
           - os: windows-latest
-            name: windows build debug win.exe
+            name: windows build win.exe
+            build_type: release
+            kernel_path: "../app/kernel/SiYuan-Kernel.exe"
+            build_args_suffix: "Mode=prod"
+            electron_args: "dist"
+            goos: "windows"
+            gobin: "bin"
+            mingwsys: "MINGW64"
+            goarch: "amd64"
+            suffix: "win.exe"
+          - os: windows-11-arm
+            name: windows build win-arm64.exe
+            build_type: release
+            kernel_path: "../app/kernel-arm64/SiYuan-Kernel.exe"
+            build_args_suffix: "Mode=prod"
+            electron_args: "dist-arm64"
+            goos: "windows"
+            gobin: "bin"
+            mingwsys: "CLANGARM64"
+            cc: "clang"
+            goarch: "arm64"
+            suffix: "win-arm64.exe"
+    steps: *desktop_build_steps
+
+  build_windows_debug:
+    if: needs.prepare.outputs.is_beta == 'true'
+    runs-on: ${{ matrix.config.os }}
+    name: ${{ matrix.config.name }}
+    needs: [prepare]
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - os: windows-latest
+            name: windows build win.exe debug
             build_type: debug
             kernel_path: "../app/kernel/SiYuan-Kernel.exe"
             build_args_suffix: "Mode=prod"
@@ -447,7 +510,7 @@ jobs:
             goarch: "amd64"
             suffix: "win.exe"
           - os: windows-11-arm
-            name: windows build debug win-arm64.exe
+            name: windows build win-arm64.exe debug
             build_type: debug
             kernel_path: "../app/kernel-arm64/SiYuan-Kernel.exe"
             build_args_suffix: "Mode=prod"
@@ -462,18 +525,15 @@ jobs:
 
   build_android:
     runs-on: ubuntu-latest
-    name: ubuntu 编译 android.release.apk
+    name: ubuntu build android.apk
     # Android and desktop builds run in parallel, both depend on prepare.
     # create_release aggregates all artifacts once both jobs succeed.
     needs: prepare
-    strategy:
-      fail-fast: false
-      matrix:
-        config:
-          - build_type: release
-            gradle_task: assembleOfficialRelease
-            output_dir: official/release
-            artifact_name: siyuan-android
+    env:
+      BUILD_TYPE: release
+      GRADLE_TASK: assembleOfficialRelease
+      OUTPUT_DIR: official/release
+      ARTIFACT_NAME: siyuan-android
     steps: &android_build_steps
       - name: 检查代码
         uses: actions/checkout@v6
@@ -512,12 +572,12 @@ jobs:
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app
 
       - name: 编译前端
-        if: matrix.config.build_type == 'release'
+        if: env.BUILD_TYPE == 'release'
         run: pnpm run build
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app
 
       - name: 编译 Debug 前端
-        if: matrix.config.build_type == 'debug'
+        if: env.BUILD_TYPE == 'debug'
         run: |
           pnpm exec webpack --mode development --no-watch --no-optimization-minimize
           pnpm exec webpack --mode development --no-watch --no-optimization-minimize --config webpack.mobile.js
@@ -526,12 +586,12 @@ jobs:
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app
 
       - name: 安装前端压缩工具
-        if: matrix.config.build_type == 'release'
+        if: env.BUILD_TYPE == 'release'
         run: npm install --no-save --package-lock=false terser html-minifier-terser postcss cssnano sharp svgo glob fast-glob
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}
 
       - name: 压缩前端静态文件
-        if: matrix.config.build_type == 'release'
+        if: env.BUILD_TYPE == 'release'
         run: node min.js
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}
 
@@ -568,7 +628,7 @@ jobs:
           GOPATH: ${{ github.workspace }}/go
 
       - name: 编译 Android Kernel
-        if: matrix.config.build_type == 'release'
+        if: env.BUILD_TYPE == 'release'
         # Ver 必须用 go.mod 模块路径（不能用 github.repository，fork 上 -X 会静默失败）
         run: gomobile bind -tags "fts5 sqlcipher" -ldflags "-s -w -X github.com/siyuan-note/siyuan/kernel/util.Ver=${{ needs.prepare.outputs.version }}" -v -o kernel.aar -target android/arm,android/arm64,android/386,android/amd64 -androidapi 26 ./mobile/
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/kernel
@@ -578,7 +638,7 @@ jobs:
           JAVA_TOOL_OPTIONS: -Dfile.encoding=UTF-8
 
       - name: 编译 Android Debug Kernel
-        if: matrix.config.build_type == 'debug'
+        if: env.BUILD_TYPE == 'debug'
         run: gomobile bind -tags "fts5 sqlcipher" -gcflags="all=-N -l" -ldflags "-X github.com/siyuan-note/siyuan/kernel/util.Ver=${{ needs.prepare.outputs.version }}" -v -o kernel.aar -target android/arm,android/arm64,android/386,android/amd64 -androidapi 26 ./mobile/
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/kernel
         env:
@@ -664,8 +724,8 @@ jobs:
         run: |
           echo "sdk.dir=$ANDROID_HOME" > local.properties
           chmod +x ./gradlew
-          ./gradlew ${{ matrix.config.gradle_task }} -PsiyuanVersionName=${{ needs.prepare.outputs.version }}
-          cd app/build/outputs/apk/${{ matrix.config.output_dir }}
+          ./gradlew ${{ env.GRADLE_TASK }} -PsiyuanVersionName=${{ needs.prepare.outputs.version }}
+          cd app/build/outputs/apk/${{ env.OUTPUT_DIR }}
           for apk in *.apk; do
             case "$apk" in
               *armeabi-v7a*) target="armeabi-v7a" ;;
@@ -675,7 +735,7 @@ jobs:
               *universal*) target="universal" ;;
               *) target="universal" ;;
             esac
-            if [ "${{ matrix.config.build_type }}" = "debug" ]; then
+            if [ "${{ env.BUILD_TYPE }}" = "debug" ]; then
               mv "$apk" "siyuan-${{ needs.prepare.outputs.version }}-android-debug-${target}.apk"
             else
               mv "$apk" "siyuan-${{ needs.prepare.outputs.version }}-android-${target}.apk"
@@ -686,37 +746,36 @@ jobs:
       - name: 上传 Android 构建产物
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.config.artifact_name }}
-          path: ${{ github.workspace }}/siyuan-android/app/build/outputs/apk/${{ matrix.config.output_dir }}/siyuan-${{ needs.prepare.outputs.version }}-android${{ matrix.config.build_type == 'debug' && '-debug' || '' }}-*.apk
+          name: ${{ env.ARTIFACT_NAME }}
+          path: ${{ github.workspace }}/siyuan-android/app/build/outputs/apk/${{ env.OUTPUT_DIR }}/siyuan-${{ needs.prepare.outputs.version }}-android${{ env.BUILD_TYPE == 'debug' && '-debug' || '' }}-*.apk
           if-no-files-found: error
           retention-days: 1
 
   build_android_debug:
     if: needs.prepare.outputs.is_beta == 'true'
     runs-on: ubuntu-latest
-    name: ubuntu 编译 android.debug.apk
+    name: ubuntu build android.apk debug
     needs: prepare
-    strategy:
-      fail-fast: false
-      matrix:
-        config:
-          - build_type: debug
-            gradle_task: assembleOfficialDebug
-            output_dir: official/debug
-            artifact_name: siyuan-android-debug
+    env:
+      BUILD_TYPE: debug
+      GRADLE_TASK: assembleOfficialDebug
+      OUTPUT_DIR: official/debug
+      ARTIFACT_NAME: siyuan-android-debug
     steps: *android_build_steps
 
   create_release:
     name: 发布 Release
     runs-on: ubuntu-latest
-    needs: [prepare, build, build_debug, build_android, build_android_debug]
+    needs: [prepare, build_linux, build_linux_debug, build_macos, build_macos_debug, build_windows, build_windows_debug, build_android, build_android_debug]
     if: >-
       always() &&
       needs.prepare.result == 'success' &&
-      needs.build.result == 'success' &&
+      needs.build_linux.result == 'success' &&
+      needs.build_macos.result == 'success' &&
+      needs.build_windows.result == 'success' &&
       needs.build_android.result == 'success' &&
-      ((needs.prepare.outputs.is_beta == 'true' && needs.build_debug.result == 'success' && needs.build_android_debug.result == 'success') ||
-      (needs.prepare.outputs.is_beta != 'true' && needs.build_debug.result == 'skipped' && needs.build_android_debug.result == 'skipped'))
+      ((needs.prepare.outputs.is_beta == 'true' && needs.build_linux_debug.result == 'success' && needs.build_macos_debug.result == 'success' && needs.build_windows_debug.result == 'success' && needs.build_android_debug.result == 'success') ||
+      (needs.prepare.outputs.is_beta != 'true' && needs.build_linux_debug.result == 'skipped' && needs.build_macos_debug.result == 'skipped' && needs.build_windows_debug.result == 'skipped' && needs.build_android_debug.result == 'skipped'))
     steps:
       - name: 下载全部构建产物
         uses: actions/download-artifact@v8
