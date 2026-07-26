@@ -101,7 +101,7 @@ export const initBar = (app: App) => {
 <div id="barExit" class="ft__error toolbar__item ariaLabel${isInMobileApp() ? "" : " fn__none"}" aria-label="${window.siyuan.languages.safeQuit}">
     <svg><use xlink:href="#iconQuit"></use></svg>
 </div>
-<div id="barMore" class="toolbar__item ariaLabel" aria-label="${window.siyuan.languages.more}">
+<div id="barMore" class="toolbar__item ariaLabel fn__none" aria-label="${window.siyuan.languages.more}">
     <svg><use xlink:href="#iconMore"></use></svg>
 </div>
 <div class="fn__flex" id="windowControls"></div>`;
@@ -311,6 +311,7 @@ export const initBar = (app: App) => {
     if (window.siyuan.config.appearance.hideToolbar) {
         document.body.classList.add("body--toolbar-hide");
     }
+    resizeTopBar();
 };
 
 export const setZoom = (type: "zoomIn" | "zoomOut" | "restore") => {

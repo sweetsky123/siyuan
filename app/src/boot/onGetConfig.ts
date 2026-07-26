@@ -359,6 +359,7 @@ ${response.data.replace("%pages", "<span class=totalPages></span>").replace("%pa
         } else {
             document.getElementById("windowControls").innerHTML = controlsHTML;
         }
+        resizeTopBar();
         const maxBtnElement = document.getElementById("maxWindow");
         const restoreBtnElement = document.getElementById("restoreWindow");
 

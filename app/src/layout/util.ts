@@ -703,6 +703,9 @@ export const resizeTopBar = () => {
     }
     dragElement.style.padding = "";
     const barMoreElement = toolbarElement.querySelector("#barMore");
+    if (!barMoreElement) {
+        return;
+    }
     barMoreElement.classList.remove("fn__none");
     barMoreElement.removeAttribute("data-hideids");
 
