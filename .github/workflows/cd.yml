@@ -152,8 +152,9 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/kernel/go.mod
-          cache-dependency-path: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/kernel/go.sum
-          cache: true
+          # cache-dependency-path: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/kernel/go.sum
+          # cache: true
+          cache: false
       - run: go version
 
       - name: 安装 goversioninfo
@@ -173,12 +174,12 @@ jobs:
         run: npm install -g ${{ needs.prepare.outputs.packageManager }}
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app
 
-      - name: 缓存 pnpm store
-        uses: actions/cache@v5
-        with:
-          path: ~/.pnpm-store
-          key: pnpm-${{ runner.os }}-${{ hashFiles('app/pnpm-lock.yaml') }}
-          restore-keys: pnpm-${{ runner.os }}-
+      # - name: 缓存 pnpm store
+      #   uses: actions/cache@v5
+      #   with:
+      #     path: ~/.pnpm-store
+      #     key: pnpm-${{ runner.os }}-${{ hashFiles('app/pnpm-lock.yaml') }}
+      #     restore-keys: pnpm-${{ runner.os }}-
 
       - name: 安装前端依赖
         run: pnpm install --no-frozen-lockfile
@@ -355,8 +356,9 @@ jobs:
         uses: actions/setup-go@v7
         with:
           go-version-file: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/kernel/go.mod
-          cache-dependency-path: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/kernel/go.sum
-          cache: true
+          # cache-dependency-path: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/kernel/go.sum
+          # cache: true
+          cache: false
       - run: go version
 
       - name: 安装 Node
@@ -370,12 +372,12 @@ jobs:
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app
       - run: pnpm -v
 
-      - name: 缓存 pnpm store
-        uses: actions/cache@v5
-        with:
-          path: ~/.pnpm-store
-          key: pnpm-${{ runner.os }}-${{ hashFiles('app/pnpm-lock.yaml') }}
-          restore-keys: pnpm-${{ runner.os }}-
+      # - name: 缓存 pnpm store
+      #   uses: actions/cache@v5
+      #   with:
+      #     path: ~/.pnpm-store
+      #     key: pnpm-${{ runner.os }}-${{ hashFiles('app/pnpm-lock.yaml') }}
+      #     restore-keys: pnpm-${{ runner.os }}-
 
       - name: 安装前端依赖
         run: pnpm install --no-frozen-lockfile
@@ -615,6 +617,11 @@ jobs:
             "siyuan-android/siyuan-${VERSION}-android-arm64-v8a.apk"
             "siyuan-android/siyuan-${VERSION}-android-x86.apk"
             "siyuan-android/siyuan-${VERSION}-android-x86_64.apk"
+            "siyuan-android-debug/siyuan-${VERSION}-android-debug-universal.apk"
+            "siyuan-android-debug/siyuan-${VERSION}-android-debug-armeabi-v7a.apk"
+            "siyuan-android-debug/siyuan-${VERSION}-android-debug-arm64-v8a.apk"
+            "siyuan-android-debug/siyuan-${VERSION}-android-debug-x86.apk"
+            "siyuan-android-debug/siyuan-${VERSION}-android-debug-x86_64.apk"
             "SHA256SUMS.txt"
           )
           missing=0
@@ -666,4 +673,9 @@ jobs:
             "siyuan-android/siyuan-${VERSION}-android-armeabi-v7a.apk#siyuan-${VERSION}-android-armeabi-v7a.apk" \
             "siyuan-android/siyuan-${VERSION}-android-arm64-v8a.apk#siyuan-${VERSION}-android-arm64-v8a.apk" \
             "siyuan-android/siyuan-${VERSION}-android-x86.apk#siyuan-${VERSION}-android-x86.apk" \
-            "siyuan-android/siyuan-${VERSION}-android-x86_64.apk#siyuan-${VERSION}-android-x86_64.apk"
+            "siyuan-android/siyuan-${VERSION}-android-x86_64.apk#siyuan-${VERSION}-android-x86_64.apk" \
+            "siyuan-android-debug/siyuan-${VERSION}-android-debug-universal.apk#siyuan-${VERSION}-android-debug-universal.apk" \
+            "siyuan-android-debug/siyuan-${VERSION}-android-debug-armeabi-v7a.apk#siyuan-${VERSION}-android-debug-armeabi-v7a.apk" \
+            "siyuan-android-debug/siyuan-${VERSION}-android-debug-arm64-v8a.apk#siyuan-${VERSION}-android-debug-arm64-v8a.apk" \
+            "siyuan-android-debug/siyuan-${VERSION}-android-debug-x86.apk#siyuan-${VERSION}-android-debug-x86.apk" \
+            "siyuan-android-debug/siyuan-${VERSION}-android-debug-x86_64.apk#siyuan-${VERSION}-android-debug-x86_64.apk"
