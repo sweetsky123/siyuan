@@ -107,7 +107,7 @@ export const bazaar = {
 <div class="b3-label b3-label--noborder">
     <div>${window.siyuan.languages.bazaarTrust1}</div>
     <div class="fn__hr--b"></div>
-    <diiv>${window.siyuan.languages.bazaarTrust2}</diiv>
+    <div>${window.siyuan.languages.bazaarTrust2}</div>
 </div>
 <div class="ft__center b3-label b3-label--noborder">
     <button class="b3-button fn__size200">${window.siyuan.languages.trust}</button>

@@ -590,6 +590,11 @@
     overflow: auto;
     padding: 0 0 24px;
     box-sizing: border-box;
+
+    .b3-label {
+      padding-right: 0;
+      padding-left: 0;
+    }
   }
 
   .layout-tab-bar {
@@ -770,7 +775,13 @@
       padding: 12px;
       margin-bottom: 12px;
 
-      &:hover {
+      @media (hover: hover) and (pointer: fine) {
+        &:hover {
+          background-color: var(--b3-list-hover);
+        }
+      }
+
+      &:active {
         background-color: var(--b3-list-hover);
       }
 
