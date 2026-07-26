@@ -175,7 +175,7 @@ func newSyncHeaders(headers []*conf.SyncHeader, userAgent, referer string) http.
 		}
 		name := strings.TrimSpace(resolveSyncSecretsVars(header.Name))
 		value := resolveSyncSecretsVars(header.Value)
-		if "" == name {
+		if "" == name || "" == strings.TrimSpace(value) {
 			continue
 		}
 		ret.Add(name, value)

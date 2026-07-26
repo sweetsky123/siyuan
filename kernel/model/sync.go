@@ -455,6 +455,7 @@ func SetSyncProviderS3(s3 *conf.S3) (err error) {
 	s3.Timeout = util.NormalizeTimeout(s3.Timeout)
 	s3.ConcurrentReqs = util.NormalizeConcurrentReqs(s3.ConcurrentReqs, conf.ProviderS3)
 	s3.ConnectPort = normalizeConnectPort(s3.ConnectPort)
+	s3.Headers = normalizeSyncHeaders(s3.Headers)
 
 	Conf.Sync.S3 = s3
 	Conf.Save()
@@ -470,10 +471,23 @@ func SetSyncProviderWebDAV(webdav *conf.WebDAV) (err error) {
 	webdav.Timeout = util.NormalizeTimeout(webdav.Timeout)
 	webdav.ConcurrentReqs = util.NormalizeConcurrentReqs(webdav.ConcurrentReqs, conf.ProviderWebDAV)
 	webdav.ConnectPort = normalizeConnectPort(webdav.ConnectPort)
+	webdav.Headers = normalizeSyncHeaders(webdav.Headers)
 
 	Conf.Sync.WebDAV = webdav
 	Conf.Save()
 	return
+}
+
+// normalizeSyncHeaders 仅移除名称和值均为空的请求头，保留单侧已填写的配置供用户继续编辑。
+func normalizeSyncHeaders(headers []*conf.SyncHeader) []*conf.SyncHeader {
+	ret := headers[:0]
+	for _, header := range headers {
+		if nil == header || ("" == strings.TrimSpace(header.Name) && "" == strings.TrimSpace(header.Value)) {
+			continue
+		}
+		ret = append(ret, header)
+	}
+	return ret
 }
 
 // normalizeConnectPort 将非法连接端口归零：0 表示不覆盖，1–65535 为有效拨号端口。

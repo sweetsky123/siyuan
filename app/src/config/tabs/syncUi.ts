@@ -540,17 +540,18 @@ const saveSyncProviderConfigValues = (configElement: Element) => {
     }
     const data = readProviderConfigFields(configElement, def.getConfig());
     const configKey = def.configKey;
-    // 使用 fetchSyncPost：内核返回 code < 0 时 fetchPost 不会调用回调，此处需始终回写界面与已保存配置一致
+    // 保存成功时保留当前编辑状态；保存失败时回滚到上次已保存配置。
     fetchSyncPost(def.api, {[configKey]: data})
         .then((response) => {
             if (response.code === 0 && response.data?.[configKey]) {
                 window.siyuan.config.sync[configKey] = response.data[configKey];
+                return;
             }
-        })
-        .finally(() => {
             fillSyncProviderConfigValues(configElement);
         })
-        .catch(() => {});
+        .catch(() => {
+            fillSyncProviderConfigValues(configElement);
+        });
 };
 
 const fillSyncProviderConfigValues = (configElement: Element) => {
@@ -632,7 +633,7 @@ const readProviderConfigFields = <T extends object>(configElement: Element, temp
                 name: row.querySelector<HTMLInputElement>('[data-name="name"]')?.value || "",
                 value: row.querySelector<HTMLInputElement>('[data-name="value"]')?.value || "",
             };
-        }).filter((header) => header.name.trim() || header.value.trim());
+        });
     }
     return result as T;
 };
