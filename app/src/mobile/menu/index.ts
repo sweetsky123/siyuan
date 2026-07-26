@@ -184,7 +184,7 @@ export const initRightMenu = (app: App) => {
                 openModel({
                     title: settingTabDef.title,
                     icon: settingTabDef.icon,
-                    html: `<div class="config${isMobile() ? " config--mobile" : ""}"></div>`,
+                    html: `<div class="config${isMobile() ? ` config--mobile${settingTabDef.id === "bazaar" ? " config--mobile-bazaar" : ""}` : ""}"></div>`,
                     bindEvent(modelMainElement: HTMLElement) {
                         const root = modelMainElement.firstElementChild as HTMLElement;
                         bindSettingSaveDelegation(root);

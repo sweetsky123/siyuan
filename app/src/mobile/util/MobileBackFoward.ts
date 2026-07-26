@@ -145,7 +145,13 @@ export const goBack = () => {
         !window.siyuan.menus.menu.element.classList.contains("fn__none")) {
         window.siyuan.menus.menu.element.dispatchEvent(new CustomEvent("click", {detail: "back"}));
         return;
-    } else if (document.getElementById("model").style.transform === "translateY(0px)") {
+    }
+    const bazaarReadmeElement = document.querySelector(".config--mobile-bazaar #configBazaarReadme.config-bazaar__readme--show");
+    if (bazaarReadmeElement) {
+        bazaarReadmeElement.classList.remove("config-bazaar__readme--show");
+        return;
+    }
+    if (document.getElementById("model").style.transform === "translateY(0px)") {
         const searchAssetsPanelElement = document.getElementById("searchAssetsPanel");
         if (!searchAssetsPanelElement || searchAssetsPanelElement.classList.contains("fn__none")) {
             document.getElementById("model").style.transform = "";
