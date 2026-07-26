@@ -24,6 +24,7 @@ jobs:
       release_body: ${{ steps.release_info.outputs.release_body }}
       prerelease: ${{ steps.release_flags.outputs.prerelease }}
       make_latest: ${{ steps.release_flags.outputs.make_latest }}
+      is_beta: ${{ steps.release_flags.outputs.is_beta }}
     steps:
       - name: 检查代码
         uses: actions/checkout@v6
@@ -70,6 +71,11 @@ jobs:
             echo "prerelease=false" >> $GITHUB_OUTPUT
             echo "make_latest=true" >> $GITHUB_OUTPUT
           fi
+          if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" == *beta* ]]; then
+            echo "is_beta=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_beta=false" >> $GITHUB_OUTPUT
+          fi
 
   build:
     runs-on: ${{ matrix.config.os }}
@@ -81,6 +87,7 @@ jobs:
         config:
           - os: ubuntu-24.04
             name: ubuntu build linux
+            build_type: release
             kernel_path: "../app/kernel-linux/SiYuan-Kernel"
             build_args_suffix: "Mode=prod"
             electron_args: "dist-linux"
@@ -89,6 +96,7 @@ jobs:
             suffix: "linux"
           - os: ubuntu-24.04
             name: ubuntu build linux-arm64
+            build_type: release
             kernel_path: "../app/kernel-linux-arm64/SiYuan-Kernel"
             build_args_suffix: "Mode=prod"
             electron_args: "dist-linux-arm64"
@@ -98,6 +106,7 @@ jobs:
             suffix: "linux-arm64"
           - os: macos-latest
             name: macos build mac.dmg
+            build_type: release
             kernel_path: "../app/kernel-darwin/SiYuan-Kernel"
             build_args_suffix: "Mode=prod"
             electron_args: "dist-darwin"
@@ -106,6 +115,7 @@ jobs:
             suffix: "mac.dmg"
           - os: macos-latest
             name: macos build mac-arm64.dmg
+            build_type: release
             kernel_path: "../app/kernel-darwin-arm64/SiYuan-Kernel"
             build_args_suffix: "Mode=prod"
             electron_args: "dist-darwin-arm64"
@@ -114,6 +124,7 @@ jobs:
             suffix: "mac-arm64.dmg"
           - os: windows-latest
             name: windows build win.exe
+            build_type: release
             kernel_path: "../app/kernel/SiYuan-Kernel.exe"
             build_args_suffix: "Mode=prod"
             electron_args: "dist"
@@ -124,6 +135,7 @@ jobs:
             suffix: "win.exe"
           - os: windows-11-arm
             name: windows build win-arm64.exe
+            build_type: release
             kernel_path: "../app/kernel-arm64/SiYuan-Kernel.exe"
             build_args_suffix: "Mode=prod"
             electron_args: "dist-arm64"
@@ -134,7 +146,7 @@ jobs:
             goarch: "arm64"
             suffix: "win-arm64.exe"
 
-    steps:
+    steps: &desktop_build_steps
       - name: 检查代码
         uses: actions/checkout@v6
         with:
@@ -190,14 +202,26 @@ jobs:
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app
 
       - name: 编译前端
+        if: matrix.config.build_type == 'release'
         run: pnpm run build
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app
 
+      - name: 编译 Debug 前端
+        if: matrix.config.build_type == 'debug'
+        run: |
+          pnpm exec webpack --mode development --no-watch --no-optimization-minimize
+          pnpm exec webpack --mode development --no-watch --no-optimization-minimize --config webpack.mobile.js
+          pnpm exec webpack --mode development --no-watch --no-optimization-minimize --config webpack.desktop.js
+          pnpm exec webpack --mode development --no-watch --no-optimization-minimize --config webpack.export.js
+        working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app
+
       - name: 安装前端压缩工具
+        if: matrix.config.build_type == 'release'
         run: npm install --no-save --package-lock=false terser html-minifier-terser postcss cssnano sharp svgo glob fast-glob
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}
 
       - name: 压缩前端静态文件
+        if: matrix.config.build_type == 'release'
         run: node min.js app/stage
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}
 
@@ -224,7 +248,7 @@ jobs:
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/kernel
 
       - name: 编译 Kernel
-        if: matrix.config.goos != 'windows'
+        if: matrix.config.goos != 'windows' && matrix.config.build_type == 'release'
         shell: bash
         # Ver 必须用 go.mod 模块路径 github.com/siyuan-note/siyuan/kernel（不能用 github.repository；
         # fork 上会变成 sweetsky123/siyuan，-X 路径不匹配则静默失败，内核仍为源码默认版本）
@@ -239,11 +263,37 @@ jobs:
           CC: ${{ matrix.config.cc }}
 
       - name: 编译 Windows Kernel
-        if: matrix.config.goos == 'windows'
+        if: matrix.config.goos == 'windows' && matrix.config.build_type == 'release'
         shell: msys2 {0}
         # Ver 必须用 go.mod 模块路径 github.com/siyuan-note/siyuan/kernel（不能用 github.repository；
         # fork 上会变成 sweetsky123/siyuan，-X 路径不匹配则静默失败，内核仍为源码默认版本）
         run: go build -gcflags="-l=4" -pgo=auto -trimpath -buildvcs=false -tags "fts5 sqlcipher" -o "${{ matrix.config.kernel_path }}" -ldflags "-s -w -X github.com/siyuan-note/siyuan/kernel/util.${{ matrix.config.build_args_suffix }} -X github.com/siyuan-note/siyuan/kernel/util.Ver=${{ needs.prepare.outputs.version }}"
+        working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/kernel
+        env:
+          GO111MODULE: on
+          CGO_ENABLED: 1
+          GOOS: ${{ matrix.config.goos }}
+          GOPATH: ${{ github.workspace }}/go
+          GOARCH: ${{ matrix.config.goarch }}
+          CC: ${{ matrix.config.cc }}
+
+      - name: 编译 Debug Kernel
+        if: matrix.config.goos != 'windows' && matrix.config.build_type == 'debug'
+        shell: bash
+        run: go build -gcflags="all=-N -l" -buildvcs=false -tags "fts5 sqlcipher" -o "${{ matrix.config.kernel_path }}" -ldflags "-X github.com/siyuan-note/siyuan/kernel/util.${{ matrix.config.build_args_suffix }} -X github.com/siyuan-note/siyuan/kernel/util.Ver=${{ needs.prepare.outputs.version }}"
+        working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/kernel
+        env:
+          GO111MODULE: on
+          CGO_ENABLED: 1
+          GOOS: ${{ matrix.config.goos }}
+          GOPATH: ${{ github.workspace }}/go
+          GOARCH: ${{ matrix.config.goarch }}
+          CC: ${{ matrix.config.cc }}
+
+      - name: 编译 Windows Debug Kernel
+        if: matrix.config.goos == 'windows' && matrix.config.build_type == 'debug'
+        shell: msys2 {0}
+        run: go build -gcflags="all=-N -l" -buildvcs=false -tags "fts5 sqlcipher" -o "${{ matrix.config.kernel_path }}" -ldflags "-X github.com/siyuan-note/siyuan/kernel/util.${{ matrix.config.build_args_suffix }} -X github.com/siyuan-note/siyuan/kernel/util.Ver=${{ needs.prepare.outputs.version }}"
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/kernel
         env:
           GO111MODULE: on
@@ -272,12 +322,23 @@ jobs:
         run: pnpm run ${{ matrix.config.electron_args }}
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app
 
+      - name: 重命名 Debug 构建产物
+        if: matrix.config.build_type == 'debug'
+        shell: bash
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          find build -maxdepth 1 -type f -name "siyuan-${VERSION}-*" -print0 | while IFS= read -r -d '' file; do
+            name=$(basename "$file")
+            mv "$file" "build/${name/siyuan-${VERSION}-/siyuan-${VERSION}-debug-}"
+          done
+        working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app
+
       - name: 上传 macOS 构建产物
         if: matrix.config.goos == 'darwin'
         uses: actions/upload-artifact@v7
         with:
-          name: siyuan-${{ matrix.config.suffix }}
-          path: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.suffix }}
+          name: siyuan-${{ matrix.config.build_type == 'debug' && 'debug-' || '' }}${{ matrix.config.suffix }}
+          path: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.build_type == 'debug' && 'debug-' || '' }}${{ matrix.config.suffix }}
           if-no-files-found: error
           retention-days: 1
 
@@ -285,10 +346,10 @@ jobs:
         if: matrix.config.goos == 'windows'
         uses: actions/upload-artifact@v7
         with:
-          name: siyuan-${{ matrix.config.suffix }}
+          name: siyuan-${{ matrix.config.build_type == 'debug' && 'debug-' || '' }}${{ matrix.config.suffix }}
           path: |
-            ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.suffix }}
-            ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.goarch == 'arm64' && 'win-arm64-portable.exe' || 'win-portable.exe' }}
+            ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.build_type == 'debug' && 'debug-' || '' }}${{ matrix.config.suffix }}
+            ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.build_type == 'debug' && 'debug-' || '' }}${{ matrix.config.goarch == 'arm64' && 'win-arm64-portable.exe' || 'win-portable.exe' }}
           if-no-files-found: error
           retention-days: 1
 
@@ -296,8 +357,8 @@ jobs:
         if: matrix.config.goos == 'linux'
         uses: actions/upload-artifact@v7
         with:
-          name: siyuan-${{ matrix.config.suffix }}.AppImage
-          path: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.suffix }}.AppImage
+          name: siyuan-${{ matrix.config.build_type == 'debug' && 'debug-' || '' }}${{ matrix.config.suffix }}.AppImage
+          path: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.build_type == 'debug' && 'debug-' || '' }}${{ matrix.config.suffix }}.AppImage
           if-no-files-found: error
           retention-days: 1
 
@@ -305,8 +366,8 @@ jobs:
         if: matrix.config.goos == 'linux'
         uses: actions/upload-artifact@v7
         with:
-          name: siyuan-${{ matrix.config.suffix }}.tar.gz
-          path: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.suffix }}.tar.gz
+          name: siyuan-${{ matrix.config.build_type == 'debug' && 'debug-' || '' }}${{ matrix.config.suffix }}.tar.gz
+          path: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.build_type == 'debug' && 'debug-' || '' }}${{ matrix.config.suffix }}.tar.gz
           if-no-files-found: error
           retention-days: 1
 
@@ -314,8 +375,8 @@ jobs:
         if: matrix.config.goos == 'linux'
         uses: actions/upload-artifact@v7
         with:
-          name: siyuan-${{ matrix.config.suffix }}.deb
-          path: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.suffix }}.deb
+          name: siyuan-${{ matrix.config.build_type == 'debug' && 'debug-' || '' }}${{ matrix.config.suffix }}.deb
+          path: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.build_type == 'debug' && 'debug-' || '' }}${{ matrix.config.suffix }}.deb
           if-no-files-found: error
           retention-days: 1
 
@@ -323,14 +384,85 @@ jobs:
         if: matrix.config.goos == 'linux'
         uses: actions/upload-artifact@v7
         with:
-          name: siyuan-${{ matrix.config.suffix }}.rpm
-          path: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.suffix }}.rpm
+          name: siyuan-${{ matrix.config.build_type == 'debug' && 'debug-' || '' }}${{ matrix.config.suffix }}.rpm
+          path: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app/build/siyuan-*-${{ matrix.config.build_type == 'debug' && 'debug-' || '' }}${{ matrix.config.suffix }}.rpm
           if-no-files-found: error
           retention-days: 1
 
+  build_debug:
+    if: needs.prepare.outputs.is_beta == 'true'
+    runs-on: ${{ matrix.config.os }}
+    name: ${{ matrix.config.name }}
+    needs: [prepare]
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - os: ubuntu-24.04
+            name: ubuntu build debug linux
+            build_type: debug
+            kernel_path: "../app/kernel-linux/SiYuan-Kernel"
+            build_args_suffix: "Mode=prod"
+            electron_args: "dist-linux"
+            goos: "linux"
+            goarch: "amd64"
+            suffix: "linux"
+          - os: ubuntu-24.04
+            name: ubuntu build debug linux-arm64
+            build_type: debug
+            kernel_path: "../app/kernel-linux-arm64/SiYuan-Kernel"
+            build_args_suffix: "Mode=prod"
+            electron_args: "dist-linux-arm64"
+            goos: "linux"
+            cc: "aarch64-linux-gnu-gcc"
+            goarch: "arm64"
+            suffix: "linux-arm64"
+          - os: macos-latest
+            name: macos build debug mac.dmg
+            build_type: debug
+            kernel_path: "../app/kernel-darwin/SiYuan-Kernel"
+            build_args_suffix: "Mode=prod"
+            electron_args: "dist-darwin"
+            goos: "darwin"
+            goarch: "amd64"
+            suffix: "mac.dmg"
+          - os: macos-latest
+            name: macos build debug mac-arm64.dmg
+            build_type: debug
+            kernel_path: "../app/kernel-darwin-arm64/SiYuan-Kernel"
+            build_args_suffix: "Mode=prod"
+            electron_args: "dist-darwin-arm64"
+            goos: "darwin"
+            goarch: "arm64"
+            suffix: "mac-arm64.dmg"
+          - os: windows-latest
+            name: windows build debug win.exe
+            build_type: debug
+            kernel_path: "../app/kernel/SiYuan-Kernel.exe"
+            build_args_suffix: "Mode=prod"
+            electron_args: "dist"
+            goos: "windows"
+            gobin: "bin"
+            mingwsys: "MINGW64"
+            goarch: "amd64"
+            suffix: "win.exe"
+          - os: windows-11-arm
+            name: windows build debug win-arm64.exe
+            build_type: debug
+            kernel_path: "../app/kernel-arm64/SiYuan-Kernel.exe"
+            build_args_suffix: "Mode=prod"
+            electron_args: "dist-arm64"
+            goos: "windows"
+            gobin: "bin"
+            mingwsys: "CLANGARM64"
+            cc: "clang"
+            goarch: "arm64"
+            suffix: "win-arm64.exe"
+    steps: *desktop_build_steps
+
   build_android:
     runs-on: ubuntu-latest
-    name: ubuntu 编译 android.${{ matrix.config.build_type }}.apk
+    name: ubuntu 编译 android.release.apk
     # Android and desktop builds run in parallel, both depend on prepare.
     # create_release aggregates all artifacts once both jobs succeed.
     needs: prepare
@@ -342,11 +474,7 @@ jobs:
             gradle_task: assembleOfficialRelease
             output_dir: official/release
             artifact_name: siyuan-android
-          - build_type: debug
-            gradle_task: assembleOfficialDebug
-            output_dir: official/debug
-            artifact_name: siyuan-android-debug
-    steps:
+    steps: &android_build_steps
       - name: 检查代码
         uses: actions/checkout@v6
         with:
@@ -384,14 +512,26 @@ jobs:
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app
 
       - name: 编译前端
+        if: matrix.config.build_type == 'release'
         run: pnpm run build
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app
 
+      - name: 编译 Debug 前端
+        if: matrix.config.build_type == 'debug'
+        run: |
+          pnpm exec webpack --mode development --no-watch --no-optimization-minimize
+          pnpm exec webpack --mode development --no-watch --no-optimization-minimize --config webpack.mobile.js
+          pnpm exec webpack --mode development --no-watch --no-optimization-minimize --config webpack.desktop.js
+          pnpm exec webpack --mode development --no-watch --no-optimization-minimize --config webpack.export.js
+        working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/app
+
       - name: 安装前端压缩工具
+        if: matrix.config.build_type == 'release'
         run: npm install --no-save --package-lock=false terser html-minifier-terser postcss cssnano sharp svgo glob fast-glob
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}
 
       - name: 压缩前端静态文件
+        if: matrix.config.build_type == 'release'
         run: node min.js
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}
 
@@ -428,8 +568,18 @@ jobs:
           GOPATH: ${{ github.workspace }}/go
 
       - name: 编译 Android Kernel
+        if: matrix.config.build_type == 'release'
         # Ver 必须用 go.mod 模块路径（不能用 github.repository，fork 上 -X 会静默失败）
         run: gomobile bind -tags "fts5 sqlcipher" -ldflags "-s -w -X github.com/siyuan-note/siyuan/kernel/util.Ver=${{ needs.prepare.outputs.version }}" -v -o kernel.aar -target android/arm,android/arm64,android/386,android/amd64 -androidapi 26 ./mobile/
+        working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/kernel
+        env:
+          GOPATH: ${{ github.workspace }}/go
+          CGO_ENABLED: 1
+          JAVA_TOOL_OPTIONS: -Dfile.encoding=UTF-8
+
+      - name: 编译 Android Debug Kernel
+        if: matrix.config.build_type == 'debug'
+        run: gomobile bind -tags "fts5 sqlcipher" -gcflags="all=-N -l" -ldflags "-X github.com/siyuan-note/siyuan/kernel/util.Ver=${{ needs.prepare.outputs.version }}" -v -o kernel.aar -target android/arm,android/arm64,android/386,android/amd64 -androidapi 26 ./mobile/
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}/kernel
         env:
           GOPATH: ${{ github.workspace }}/go
@@ -541,10 +691,32 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  build_android_debug:
+    if: needs.prepare.outputs.is_beta == 'true'
+    runs-on: ubuntu-latest
+    name: ubuntu 编译 android.debug.apk
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - build_type: debug
+            gradle_task: assembleOfficialDebug
+            output_dir: official/debug
+            artifact_name: siyuan-android-debug
+    steps: *android_build_steps
+
   create_release:
     name: 发布 Release
     runs-on: ubuntu-latest
-    needs: [prepare, build, build_android]
+    needs: [prepare, build, build_debug, build_android, build_android_debug]
+    if: >-
+      always() &&
+      needs.prepare.result == 'success' &&
+      needs.build.result == 'success' &&
+      needs.build_android.result == 'success' &&
+      ((needs.prepare.outputs.is_beta == 'true' && needs.build_debug.result == 'success' && needs.build_android_debug.result == 'success') ||
+      (needs.prepare.outputs.is_beta != 'true' && needs.build_debug.result == 'skipped' && needs.build_android_debug.result == 'skipped'))
     steps:
       - name: 下载全部构建产物
         uses: actions/download-artifact@v8
@@ -617,13 +789,31 @@ jobs:
             "siyuan-android/siyuan-${VERSION}-android-arm64-v8a.apk"
             "siyuan-android/siyuan-${VERSION}-android-x86.apk"
             "siyuan-android/siyuan-${VERSION}-android-x86_64.apk"
-            "siyuan-android-debug/siyuan-${VERSION}-android-debug-universal.apk"
-            "siyuan-android-debug/siyuan-${VERSION}-android-debug-armeabi-v7a.apk"
-            "siyuan-android-debug/siyuan-${VERSION}-android-debug-arm64-v8a.apk"
-            "siyuan-android-debug/siyuan-${VERSION}-android-debug-x86.apk"
-            "siyuan-android-debug/siyuan-${VERSION}-android-debug-x86_64.apk"
             "SHA256SUMS.txt"
           )
+          if [ "${{ needs.prepare.outputs.is_beta }}" = "true" ]; then
+            expected+=(
+              "siyuan-debug-linux.AppImage/siyuan-${VERSION}-debug-linux.AppImage"
+              "siyuan-debug-linux.tar.gz/siyuan-${VERSION}-debug-linux.tar.gz"
+              "siyuan-debug-linux.deb/siyuan-${VERSION}-debug-linux.deb"
+              "siyuan-debug-linux.rpm/siyuan-${VERSION}-debug-linux.rpm"
+              "siyuan-debug-linux-arm64.AppImage/siyuan-${VERSION}-debug-linux-arm64.AppImage"
+              "siyuan-debug-linux-arm64.tar.gz/siyuan-${VERSION}-debug-linux-arm64.tar.gz"
+              "siyuan-debug-linux-arm64.deb/siyuan-${VERSION}-debug-linux-arm64.deb"
+              "siyuan-debug-linux-arm64.rpm/siyuan-${VERSION}-debug-linux-arm64.rpm"
+              "siyuan-debug-mac.dmg/siyuan-${VERSION}-debug-mac.dmg"
+              "siyuan-debug-mac-arm64.dmg/siyuan-${VERSION}-debug-mac-arm64.dmg"
+              "siyuan-debug-win.exe/siyuan-${VERSION}-debug-win.exe"
+              "siyuan-debug-win.exe/siyuan-${VERSION}-debug-win-portable.exe"
+              "siyuan-debug-win-arm64.exe/siyuan-${VERSION}-debug-win-arm64.exe"
+              "siyuan-debug-win-arm64.exe/siyuan-${VERSION}-debug-win-arm64-portable.exe"
+              "siyuan-android-debug/siyuan-${VERSION}-android-debug-universal.apk"
+              "siyuan-android-debug/siyuan-${VERSION}-android-debug-armeabi-v7a.apk"
+              "siyuan-android-debug/siyuan-${VERSION}-android-debug-arm64-v8a.apk"
+              "siyuan-android-debug/siyuan-${VERSION}-android-debug-x86.apk"
+              "siyuan-android-debug/siyuan-${VERSION}-android-debug-x86_64.apk"
+            )
+          fi
           missing=0
           for file in "${expected[@]}"; do
             if [ ! -s "$file" ]; then
@@ -653,29 +843,49 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           VERSION=${{ needs.prepare.outputs.version }}
-          gh release upload ${{ github.ref_name }} --clobber \
-            "SHA256SUMS.txt#SHA256SUMS.txt" \
-            "siyuan-linux.AppImage/siyuan-${VERSION}-linux.AppImage#siyuan-${VERSION}-linux.AppImage" \
-            "siyuan-linux.tar.gz/siyuan-${VERSION}-linux.tar.gz#siyuan-${VERSION}-linux.tar.gz" \
-            "siyuan-linux.deb/siyuan-${VERSION}-linux.deb#siyuan-${VERSION}-linux.deb" \
-            "siyuan-linux.rpm/siyuan-${VERSION}-linux.rpm#siyuan-${VERSION}-linux.rpm" \
-            "siyuan-linux-arm64.AppImage/siyuan-${VERSION}-linux-arm64.AppImage#siyuan-${VERSION}-linux-arm64.AppImage" \
-            "siyuan-linux-arm64.tar.gz/siyuan-${VERSION}-linux-arm64.tar.gz#siyuan-${VERSION}-linux-arm64.tar.gz" \
-            "siyuan-linux-arm64.deb/siyuan-${VERSION}-linux-arm64.deb#siyuan-${VERSION}-linux-arm64.deb" \
-            "siyuan-linux-arm64.rpm/siyuan-${VERSION}-linux-arm64.rpm#siyuan-${VERSION}-linux-arm64.rpm" \
-            "siyuan-mac.dmg/siyuan-${VERSION}-mac.dmg#siyuan-${VERSION}-mac.dmg" \
-            "siyuan-mac-arm64.dmg/siyuan-${VERSION}-mac-arm64.dmg#siyuan-${VERSION}-mac-arm64.dmg" \
-            "siyuan-win.exe/siyuan-${VERSION}-win.exe#siyuan-${VERSION}-win.exe" \
-            "siyuan-win.exe/siyuan-${VERSION}-win-portable.exe#siyuan-${VERSION}-win-portable.exe" \
-            "siyuan-win-arm64.exe/siyuan-${VERSION}-win-arm64.exe#siyuan-${VERSION}-win-arm64.exe" \
-            "siyuan-win-arm64.exe/siyuan-${VERSION}-win-arm64-portable.exe#siyuan-${VERSION}-win-arm64-portable.exe" \
-            "siyuan-android/siyuan-${VERSION}-android-universal.apk#siyuan-${VERSION}-android-universal.apk" \
-            "siyuan-android/siyuan-${VERSION}-android-armeabi-v7a.apk#siyuan-${VERSION}-android-armeabi-v7a.apk" \
-            "siyuan-android/siyuan-${VERSION}-android-arm64-v8a.apk#siyuan-${VERSION}-android-arm64-v8a.apk" \
-            "siyuan-android/siyuan-${VERSION}-android-x86.apk#siyuan-${VERSION}-android-x86.apk" \
-            "siyuan-android/siyuan-${VERSION}-android-x86_64.apk#siyuan-${VERSION}-android-x86_64.apk" \
-            "siyuan-android-debug/siyuan-${VERSION}-android-debug-universal.apk#siyuan-${VERSION}-android-debug-universal.apk" \
-            "siyuan-android-debug/siyuan-${VERSION}-android-debug-armeabi-v7a.apk#siyuan-${VERSION}-android-debug-armeabi-v7a.apk" \
-            "siyuan-android-debug/siyuan-${VERSION}-android-debug-arm64-v8a.apk#siyuan-${VERSION}-android-debug-arm64-v8a.apk" \
-            "siyuan-android-debug/siyuan-${VERSION}-android-debug-x86.apk#siyuan-${VERSION}-android-debug-x86.apk" \
-            "siyuan-android-debug/siyuan-${VERSION}-android-debug-x86_64.apk#siyuan-${VERSION}-android-debug-x86_64.apk"
+          assets=(
+            "SHA256SUMS.txt#SHA256SUMS.txt"
+            "siyuan-linux.AppImage/siyuan-${VERSION}-linux.AppImage#siyuan-${VERSION}-linux.AppImage"
+            "siyuan-linux.tar.gz/siyuan-${VERSION}-linux.tar.gz#siyuan-${VERSION}-linux.tar.gz"
+            "siyuan-linux.deb/siyuan-${VERSION}-linux.deb#siyuan-${VERSION}-linux.deb"
+            "siyuan-linux.rpm/siyuan-${VERSION}-linux.rpm#siyuan-${VERSION}-linux.rpm"
+            "siyuan-linux-arm64.AppImage/siyuan-${VERSION}-linux-arm64.AppImage#siyuan-${VERSION}-linux-arm64.AppImage"
+            "siyuan-linux-arm64.tar.gz/siyuan-${VERSION}-linux-arm64.tar.gz#siyuan-${VERSION}-linux-arm64.tar.gz"
+            "siyuan-linux-arm64.deb/siyuan-${VERSION}-linux-arm64.deb#siyuan-${VERSION}-linux-arm64.deb"
+            "siyuan-linux-arm64.rpm/siyuan-${VERSION}-linux-arm64.rpm#siyuan-${VERSION}-linux-arm64.rpm"
+            "siyuan-mac.dmg/siyuan-${VERSION}-mac.dmg#siyuan-${VERSION}-mac.dmg"
+            "siyuan-mac-arm64.dmg/siyuan-${VERSION}-mac-arm64.dmg#siyuan-${VERSION}-mac-arm64.dmg"
+            "siyuan-win.exe/siyuan-${VERSION}-win.exe#siyuan-${VERSION}-win.exe"
+            "siyuan-win.exe/siyuan-${VERSION}-win-portable.exe#siyuan-${VERSION}-win-portable.exe"
+            "siyuan-win-arm64.exe/siyuan-${VERSION}-win-arm64.exe#siyuan-${VERSION}-win-arm64.exe"
+            "siyuan-win-arm64.exe/siyuan-${VERSION}-win-arm64-portable.exe#siyuan-${VERSION}-win-arm64-portable.exe"
+            "siyuan-android/siyuan-${VERSION}-android-universal.apk#siyuan-${VERSION}-android-universal.apk"
+            "siyuan-android/siyuan-${VERSION}-android-armeabi-v7a.apk#siyuan-${VERSION}-android-armeabi-v7a.apk"
+            "siyuan-android/siyuan-${VERSION}-android-arm64-v8a.apk#siyuan-${VERSION}-android-arm64-v8a.apk"
+            "siyuan-android/siyuan-${VERSION}-android-x86.apk#siyuan-${VERSION}-android-x86.apk"
+            "siyuan-android/siyuan-${VERSION}-android-x86_64.apk#siyuan-${VERSION}-android-x86_64.apk"
+          )
+          if [ "${{ needs.prepare.outputs.is_beta }}" = "true" ]; then
+            assets+=(
+              "siyuan-debug-linux.AppImage/siyuan-${VERSION}-debug-linux.AppImage#siyuan-${VERSION}-debug-linux.AppImage"
+              "siyuan-debug-linux.tar.gz/siyuan-${VERSION}-debug-linux.tar.gz#siyuan-${VERSION}-debug-linux.tar.gz"
+              "siyuan-debug-linux.deb/siyuan-${VERSION}-debug-linux.deb#siyuan-${VERSION}-debug-linux.deb"
+              "siyuan-debug-linux.rpm/siyuan-${VERSION}-debug-linux.rpm#siyuan-${VERSION}-debug-linux.rpm"
+              "siyuan-debug-linux-arm64.AppImage/siyuan-${VERSION}-debug-linux-arm64.AppImage#siyuan-${VERSION}-debug-linux-arm64.AppImage"
+              "siyuan-debug-linux-arm64.tar.gz/siyuan-${VERSION}-debug-linux-arm64.tar.gz#siyuan-${VERSION}-debug-linux-arm64.tar.gz"
+              "siyuan-debug-linux-arm64.deb/siyuan-${VERSION}-debug-linux-arm64.deb#siyuan-${VERSION}-debug-linux-arm64.deb"
+              "siyuan-debug-linux-arm64.rpm/siyuan-${VERSION}-debug-linux-arm64.rpm#siyuan-${VERSION}-debug-linux-arm64.rpm"
+              "siyuan-debug-mac.dmg/siyuan-${VERSION}-debug-mac.dmg#siyuan-${VERSION}-debug-mac.dmg"
+              "siyuan-debug-mac-arm64.dmg/siyuan-${VERSION}-debug-mac-arm64.dmg#siyuan-${VERSION}-debug-mac-arm64.dmg"
+              "siyuan-debug-win.exe/siyuan-${VERSION}-debug-win.exe#siyuan-${VERSION}-debug-win.exe"
+              "siyuan-debug-win.exe/siyuan-${VERSION}-debug-win-portable.exe#siyuan-${VERSION}-debug-win-portable.exe"
+              "siyuan-debug-win-arm64.exe/siyuan-${VERSION}-debug-win-arm64.exe#siyuan-${VERSION}-debug-win-arm64.exe"
+              "siyuan-debug-win-arm64.exe/siyuan-${VERSION}-debug-win-arm64-portable.exe#siyuan-${VERSION}-debug-win-arm64-portable.exe"
+              "siyuan-android-debug/siyuan-${VERSION}-android-debug-universal.apk#siyuan-${VERSION}-android-debug-universal.apk"
+              "siyuan-android-debug/siyuan-${VERSION}-android-debug-armeabi-v7a.apk#siyuan-${VERSION}-android-debug-armeabi-v7a.apk"
+              "siyuan-android-debug/siyuan-${VERSION}-android-debug-arm64-v8a.apk#siyuan-${VERSION}-android-debug-arm64-v8a.apk"
+              "siyuan-android-debug/siyuan-${VERSION}-android-debug-x86.apk#siyuan-${VERSION}-android-debug-x86.apk"
+              "siyuan-android-debug/siyuan-${VERSION}-android-debug-x86_64.apk#siyuan-${VERSION}-android-debug-x86_64.apk"
+            )
+          fi
+          gh release upload ${{ github.ref_name }} --clobber "${assets[@]}"
