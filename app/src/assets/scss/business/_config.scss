@@ -610,6 +610,12 @@
       white-space: normal;
       overflow-wrap: anywhere;
     }
+
+    .b3-label__text {
+      overflow: visible !important;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
   }
 
   .layout-tab-bar {
