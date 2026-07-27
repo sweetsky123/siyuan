@@ -1,4 +1,5 @@
 {
+	"bazaarHideIncompatible": "إخفاء العناصر غير المتوافقة",
 	"testConnectionFailMsg": "فشل الاتصال: ${msg}",
 	"testConnectionSuccessDimensions": "نجح الاتصال (الأبعاد ${dimensions})",
 	"masterPasswordMigrationPending": "جارٍ ترحيل كلمة المرور الرئيسية",

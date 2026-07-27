@@ -1,4 +1,5 @@
 {
+	"bazaarHideIncompatible": "Скрыть несовместимые элементы",
 	"testConnectionFailMsg": "Ошибка подключения: ${msg}",
 	"testConnectionSuccessDimensions": "Подключение успешно (измерений: ${dimensions})",
 	"masterPasswordMigrationPending": "Выполняется миграция мастер-пароля",

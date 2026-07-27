@@ -1,4 +1,5 @@
 {
+	"bazaarHideIncompatible": "Ocultar itens incompatíveis",
 	"testConnectionFailMsg": "Falha na conexão: ${msg}",
 	"testConnectionSuccessDimensions": "Conexão bem-sucedida (dimensões ${dimensions})",
 	"masterPasswordMigrationPending": "Migração de senha mestra em andamento",

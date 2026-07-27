@@ -1,4 +1,5 @@
 {
+	"bazaarHideIncompatible": "הסתרת פריטים לא תואמים",
 	"testConnectionFailMsg": "החיבור נכשל: ${msg}",
 	"testConnectionSuccessDimensions": "החיבור הצליח (ממדים ${dimensions})",
 	"masterPasswordMigrationPending": "מעבר סיסמה ראשית בתהליך",

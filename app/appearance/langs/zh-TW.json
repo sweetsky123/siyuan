@@ -1,4 +1,5 @@
 {
+	"bazaarHideIncompatible": "過濾不相容項目",
 	"testConnectionFailMsg": "連線失敗：${msg}",
 	"testConnectionSuccessDimensions": "連線成功（維度 ${dimensions}）",
 	"masterPasswordMigrationPending": "主密碼遷移進行中",

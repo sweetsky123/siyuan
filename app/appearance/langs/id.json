@@ -1,4 +1,5 @@
 {
+	"bazaarHideIncompatible": "Sembunyikan item yang tidak kompatibel",
 	"testConnectionFailMsg": "Koneksi gagal: ${msg}",
 	"testConnectionSuccessDimensions": "Koneksi berhasil (dimensi ${dimensions})",
 	"masterPasswordMigrationPending": "Migrasi kata sandi utama sedang berlangsung",

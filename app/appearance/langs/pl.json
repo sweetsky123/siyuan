@@ -1,4 +1,5 @@
 {
+	"bazaarHideIncompatible": "Ukryj niezgodne elementy",
 	"testConnectionFailMsg": "Połączenie nie powiodło się: ${msg}",
 	"testConnectionSuccessDimensions": "Połączenie nawiązane (wymiary ${dimensions})",
 	"masterPasswordMigrationPending": "Trwa migracja hasła głównego",

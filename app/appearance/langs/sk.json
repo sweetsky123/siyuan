@@ -1,4 +1,5 @@
 {
+	"bazaarHideIncompatible": "Skryť nekompatibilné položky",
 	"testConnectionFailMsg": "Pripojenie zlyhalo: ${msg}",
 	"testConnectionSuccessDimensions": "Pripojenie úspešné (rozmery ${dimensions})",
 	"masterPasswordMigrationPending": "Prebieha migrácia hlavného hesla",

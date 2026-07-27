@@ -1,4 +1,5 @@
 {
+	"bazaarHideIncompatible": "Приховати несумісні елементи",
 	"testConnectionFailMsg": "Помилка підключення: ${msg}",
 	"testConnectionSuccessDimensions": "Підключення успішне (вимірів: ${dimensions})",
 	"masterPasswordMigrationPending": "Триває міграція майстер-пароля",

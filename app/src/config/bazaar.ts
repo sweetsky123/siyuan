@@ -152,6 +152,7 @@ export const bazaar = {
     </div>
     <div data-type="theme" class="config-bazaar__panel fn__none">
         <div class="fn__flex config-bazaar__title">
+            <div class="config-bazaar__toolbar-row config-bazaar__toolbar-row--filters">
             <svg class="svg ft__on-surface fn__flex-center"><use xlink:href="#iconSort"></use></svg>
             <div class="fn__space"></div>
             <select class="b3-select">
@@ -167,10 +168,13 @@ export const bazaar = {
                 <option value="1">${window.siyuan.languages.themeDark}</option>
             </select>
             <div class="fn__space"></div>
+            </div>
+            <div class="config-bazaar__toolbar-row config-bazaar__toolbar-row--search">
             <input class="b3-text-field" placeholder="${window.siyuan.languages.enterKey} ${window.siyuan.languages.search}">
             <div class="fn__space"></div>
             <div class="fn__flex-1"></div>
             <div class="counter counter--bg fn__flex-center ariaLabel" data-position="north" aria-label="${window.siyuan.languages.total}"></div>
+            </div>
         </div>
         <div id="configBazaarTheme" class="config-bazaar__content">
             ${loadingHTML}
@@ -178,6 +182,7 @@ export const bazaar = {
     </div>
     <div class="fn__none config-bazaar__panel" data-type="template">
         <div class="fn__flex config-bazaar__title">
+            <div class="config-bazaar__toolbar-row config-bazaar__toolbar-row--filters">
             <svg class="svg ft__on-surface fn__flex-center"><use xlink:href="#iconSort"></use></svg>
             <div class="fn__space"></div>
             <select class="b3-select">
@@ -187,10 +192,13 @@ export const bazaar = {
                 <option ${localSort.template === "3" ? "selected" : ""} value="3">${window.siyuan.languages.sortByDownloadsAsc}</option>
             </select>
             <div class="fn__space"></div>
+            </div>
+            <div class="config-bazaar__toolbar-row config-bazaar__toolbar-row--search">
             <input class="b3-text-field" placeholder="${window.siyuan.languages.enterKey} ${window.siyuan.languages.search}">
             <div class="fn__space"></div>
             <div class="fn__flex-1"></div>
             <div class="counter counter--bg fn__flex-center ariaLabel" data-position="north" aria-label="${window.siyuan.languages.total}"></div>
+            </div>
         </div>
         <div id="configBazaarTemplate" class="config-bazaar__content">
             ${loadingHTML}
@@ -198,6 +206,7 @@ export const bazaar = {
     </div>
     <div class="fn__none config-bazaar__panel" data-type="plugin">
         <div class="fn__flex config-bazaar__title">
+            <div class="config-bazaar__toolbar-row config-bazaar__toolbar-row--filters">
             <svg class="svg ft__on-surface fn__flex-center"><use xlink:href="#iconSort"></use></svg>
             <div class="fn__space"></div>
             <select class="b3-select">
@@ -207,10 +216,14 @@ export const bazaar = {
                 <option ${localSort.plugin === "3" ? "selected" : ""} value="3">${window.siyuan.languages.sortByDownloadsAsc}</option>
             </select>
             <div class="fn__space"></div>
+            <label class="config-bazaar__compatibility-filter"><input type="checkbox"><span>${window.siyuan.languages.bazaarHideIncompatible}</span></label>
+            </div>
+            <div class="config-bazaar__toolbar-row config-bazaar__toolbar-row--search">
             <input class="b3-text-field" placeholder="${window.siyuan.languages.enterKey} ${window.siyuan.languages.search}">
             <div class="fn__space"></div>
             <div class="fn__flex-1"></div>
             <div class="counter counter--bg fn__flex-center ariaLabel" data-position="north" aria-label="${window.siyuan.languages.total}"></div>
+            </div>
         </div>
         <div id="configBazaarPlugin" class="config-bazaar__content">
             ${loadingHTML}
@@ -218,6 +231,7 @@ export const bazaar = {
     </div>
     <div class="fn__none config-bazaar__panel" data-type="icon">
         <div class="fn__flex config-bazaar__title">
+            <div class="config-bazaar__toolbar-row config-bazaar__toolbar-row--filters">
             <svg class="svg ft__on-surface fn__flex-center"><use xlink:href="#iconSort"></use></svg>
             <div class="fn__space"></div>
             <select class="b3-select">
@@ -227,10 +241,13 @@ export const bazaar = {
                 <option ${localSort.icon === "3" ? "selected" : ""} value="3">${window.siyuan.languages.sortByDownloadsAsc}</option>
             </select>
             <div class="fn__space"></div>
+            </div>
+            <div class="config-bazaar__toolbar-row config-bazaar__toolbar-row--search">
             <input class="b3-text-field" placeholder="${window.siyuan.languages.enterKey} ${window.siyuan.languages.search}">
             <div class="fn__space"></div>
             <div class="fn__flex-1"></div>
             <div class="counter counter--bg fn__flex-center ariaLabel" data-position="north" aria-label="${window.siyuan.languages.total}"></div>
+            </div>
         </div>
         <div id="configBazaarIcon" class="config-bazaar__content">
             ${loadingHTML}
@@ -238,6 +255,7 @@ export const bazaar = {
     </div>
     <div class="fn__none config-bazaar__panel" data-type="widget">
         <div class="fn__flex config-bazaar__title">
+            <div class="config-bazaar__toolbar-row config-bazaar__toolbar-row--filters">
             <svg class="svg ft__on-surface fn__flex-center"><use xlink:href="#iconSort"></use></svg>
             <div class="fn__space"></div>
             <select class="b3-select">
@@ -247,10 +265,13 @@ export const bazaar = {
                 <option ${localSort.widget === "3" ? "selected" : ""} value="3">${window.siyuan.languages.sortByDownloadsAsc}</option>
             </select>
             <div class="fn__space"></div>
+            </div>
+            <div class="config-bazaar__toolbar-row config-bazaar__toolbar-row--search">
             <input class="b3-text-field" placeholder="${window.siyuan.languages.enterKey} ${window.siyuan.languages.search}">
             <div class="fn__space"></div>
             <div class="fn__flex-1"></div>
             <div class="counter counter--bg fn__flex-center ariaLabel" data-position="north" aria-label="${window.siyuan.languages.total}"></div>
+            </div>
         </div>
         <div id="configBazaarWidget" class="config-bazaar__content">
             ${loadingHTML}
@@ -1166,15 +1187,19 @@ type="checkbox">
                     );
                 } else {
                     // sort
-                    const panelElement = selectElement.parentElement.parentElement;
-                    const panelType = panelElement.getAttribute("data-type");
-                    const bazaarType = {
+                    const panelElement = hasClosestByClassName(selectElement, "config-bazaar__panel");
+                    if (!panelElement) {
+                        return;
+                    }
+                    const bazaarTypes = {
                         plugin: "plugins",
                         theme: "themes",
                         icon: "icons",
                         template: "templates",
                         widget: "widgets",
-                    }[panelType] as TBazaarType;
+                    } as const;
+                    const panelType = panelElement.getAttribute("data-type") as keyof typeof bazaarTypes;
+                    const bazaarType = bazaarTypes[panelType];
                     bazaar._renderBazaarCards(
                         panelElement.querySelector(".config-bazaar__content"),
                         bazaar._sortPackages(bazaar._data[bazaarType], selectElement.value),
@@ -1184,6 +1209,19 @@ type="checkbox">
                     window.siyuan.storage[Constants.LOCAL_BAZAAR][panelType] = selectElement.value;
                     setStorageVal(Constants.LOCAL_BAZAAR, window.siyuan.storage[Constants.LOCAL_BAZAAR]);
                 }
+            });
+        });
+        bazaar.element.querySelectorAll(".config-bazaar__compatibility-filter input").forEach((inputElement: HTMLInputElement) => {
+            inputElement.addEventListener("change", () => {
+                const panelElement = hasClosestByClassName(inputElement, "config-bazaar__panel");
+                if (!panelElement) {
+                    return;
+                }
+                bazaar._renderBazaarCards(
+                    panelElement.querySelector(".config-bazaar__content"),
+                    bazaar._sortPackages(bazaar._data.plugins, (panelElement.querySelector(".b3-select") as HTMLSelectElement).value),
+                    "plugins"
+                );
             });
         });
     },
@@ -1209,7 +1247,11 @@ type="checkbox">
     },
     _renderBazaarCards(container: Element, packages: IBazaarItem[], bazaarType: TBazaarType, themeModeValue?: string) {
         const htmlParts: string[] = [];
+        const hideIncompatible = (container.parentElement.querySelector(".config-bazaar__compatibility-filter input") as HTMLInputElement)?.checked;
         for (const item of packages) {
+            if (hideIncompatible && item.bazaarIncompatible) {
+                continue;
+            }
             if (bazaarType === "themes" && themeModeValue && themeModeValue !== "2" && (
                 (themeModeValue === "0" && item.modes?.includes("dark")) ||
                 (themeModeValue === "1" && item.modes?.includes("light"))

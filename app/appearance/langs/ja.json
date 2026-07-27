@@ -1,4 +1,5 @@
 {
+	"bazaarHideIncompatible": "非互換項目を非表示",
 	"testConnectionFailMsg": "接続に失敗しました：${msg}",
 	"testConnectionSuccessDimensions": "接続成功（次元 ${dimensions}）",
 	"masterPasswordMigrationPending": "マスターパスワードの移行が進行中",

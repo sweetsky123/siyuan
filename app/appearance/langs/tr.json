@@ -1,4 +1,5 @@
 {
+	"bazaarHideIncompatible": "Uyumsuz ögeleri gizle",
 	"testConnectionFailMsg": "Bağlantı başarısız: ${msg}",
 	"testConnectionSuccessDimensions": "Bağlantı başarılı (boyutlar ${dimensions})",
 	"masterPasswordMigrationPending": "Ana parola geçişi devam ediyor",
