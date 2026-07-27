@@ -367,7 +367,6 @@ const bindAccountAuthForm = (
     accountSettingsRoot?: Element,
 ) => {
     const userNameInput = authFormRoot.querySelector("#userName") as HTMLInputElement;
-    userNameInput.focus();
     const userPasswordInput = authFormRoot.querySelector("#userPassword") as HTMLInputElement;
     const captchaImg = authFormRoot.querySelector("#captchaImg") as HTMLImageElement;
     const captchaInput = authFormRoot.querySelector("#captcha") as HTMLInputElement;

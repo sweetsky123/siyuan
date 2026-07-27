@@ -216,7 +216,7 @@ export const bazaar = {
                 <option ${localSort.plugin === "3" ? "selected" : ""} value="3">${window.siyuan.languages.sortByDownloadsAsc}</option>
             </select>
             <div class="fn__space"></div>
-            <label class="config-bazaar__compatibility-filter"><input type="checkbox"><span>${window.siyuan.languages.bazaarHideIncompatible}</span></label>
+            <label class="config-bazaar__compatibility-filter"><input type="checkbox" checked><span>${window.siyuan.languages.bazaarHideIncompatible}</span></label>
             </div>
             <div class="config-bazaar__toolbar-row config-bazaar__toolbar-row--search">
             <input class="b3-text-field" placeholder="${window.siyuan.languages.enterKey} ${window.siyuan.languages.search}">
