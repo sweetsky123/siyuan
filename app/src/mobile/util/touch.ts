@@ -150,8 +150,8 @@ export const handleTouchEnd = (event: TouchEvent) => {
         if (isXScroll && firstDirection === "toRight" && !lastClientX && !hasClosestByClassName(target, "protyle-wysiwyg", true) &&
             // 划选文字时不触发关闭面板
             (getSelection().rangeCount === 0 || getSelection().toString() === "")) {
-            // 设置页面禁用右滑关闭（通用设置入口打开的 config--mobile 面板），集市等其他面板不受影响
-            if (!modelElement.querySelector(".config--mobile:not(.config--mobile-bazaar)")) {
+            // 移动端设置和集市页面禁用右滑关闭，避免列表与项目详情意外退出
+            if (!modelElement.querySelector(".config--mobile")) {
                 closeModel();
             }
         }
